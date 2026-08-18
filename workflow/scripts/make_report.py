@@ -536,9 +536,20 @@ def main():
             parts.append(f"<p class='warn {'bad' if kind == 'bad' else ''}'>{msg}</p>")
         parts.append("</section>")
     else:
+        # Qualified, not an all-clear. This panel asks whether a barcode is
+        # obviously broken -- no reads, nothing left after filtering, under a
+        # quarter retained. The performance report asks a stricter question of
+        # the same data, with absolute floors: 80% retention, 1,000 reads,
+        # Q12, and the configured length window. A barcode at 78% retention is
+        # quiet here and flagged there, so an unqualified "nothing unusual"
+        # reads as the two reports contradicting each other.
         parts.append("<section class='panel'><h2>Worth checking</h2>"
-                     "<p class='ok'>Nothing unusual — every barcode produced reads and "
-                     "retained a reasonable fraction of them.</p></section>")
+                     "<p class='ok'>Nothing obviously wrong — every barcode produced "
+                     "reads and retained a reasonable fraction of them.</p>"
+                     "<p class='sub'>This panel catches barcodes that clearly failed. "
+                     "<code>performance_report.html</code> applies stricter per-barcode "
+                     "thresholds to the same data and is worth a look before you "
+                     "analyse the tables.</p></section>")
 
     parts += [
         "<section class='panel'><h2>Reads through filtering</h2>",
