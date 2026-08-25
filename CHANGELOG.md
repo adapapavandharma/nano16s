@@ -23,6 +23,14 @@ report, so a result can always be traced to the database that produced it.
   finished work is skipped.
 
 ### Fixed
+- The guide said `-y` skips "the confirmation", implying a run normally asks
+  for one. There is exactly one prompt and it appears only when free disk looks
+  insufficient.
+- Section 16 says to match table columns by name. Barcode columns are not in
+  sorted order, and the lineage columns before them differ by rank — seven at
+  species, six at genus, two at phylum — so anything slicing by position breaks
+  on switching rank. The phyloseq note now gives those positions rather than
+  saying "the first barcode column".
 - A symlinked `fastq_pass` is no longer reported as having no barcode
   directories. The count used `find` without `-L`, so a symlink was not a
   directory to find and the run stopped while `ls` showed the barcodes plainly.

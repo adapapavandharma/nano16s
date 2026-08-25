@@ -447,11 +447,9 @@ Do this after installing, and again after any change to your conda environment.
 It is much easier to debug a broken install on demo data than three hours into a
 real run.
 
-
 ---
 
 ## 7. Try it on real data
-
 
 The bundled demo is deliberately tiny — six barcodes, enough to prove the
 install works. If you want to see what nano16s does with a real run before you
@@ -599,6 +597,10 @@ sample numbering rarely line up.
 
 ## 9. Choose settings for your amplicon
 
+Three settings are worth a decision before a real run: the length window, the
+quality threshold, and how many cores to give it. The defaults suit
+full-length 16S; the first is the one that will ruin a run if it is wrong.
+
 ### Length window — the setting that matters most
 
 Reads shorter than `--min-length` or longer than `--max-length` are discarded.
@@ -723,8 +725,9 @@ nano16s -d /path/to/your_run/fastq_pass -o my_results
 ```
 
 Before starting, nano16s prints a summary — input, barcode count, database,
-filter settings, cores — and warns if free disk looks insufficient. Add `-y` to
-skip the confirmation when running unattended.
+filter settings, cores — and begins. The one time it stops to ask is when free
+disk looks insufficient for the run; `-y` answers that in advance, which is
+what you want when running unattended.
 
 A full example with non-default settings:
 
@@ -741,6 +744,9 @@ nano16s \
 **If it stops partway** — a crash, a power cut, a closed laptop — run exactly
 the same command again. Completed work is detected and skipped, and the run
 picks up where it stopped.
+
+**More than one run to process?** `nano16s batch` takes a directory of them and
+does the lot in one command — section 19.
 
 ---
 
@@ -951,8 +957,14 @@ the reads look the way full-length 16S data should.
 
 ## 16. Use the tables downstream
 
-The combined tables are plain tab-separated text. Rows are taxa, columns are
-barcodes.
+The combined tables are plain tab-separated text. Rows are taxa. The first
+columns are the taxonomic lineage — how many depends on the rank — and the rest
+are one column per barcode.
+
+**Match columns by name, not by position.** Barcode columns are not in sorted
+order, and the lineage columns before them differ by rank — seven in the
+species tables, six in genus, two in phylum. Every example below matches on
+name, which is why none of them breaks when you switch rank.
 
 ### R
 
@@ -980,8 +992,10 @@ ab = ab.rename(columns=dict(zip(mapping["barcode"], mapping["sample"])))
 ### phyloseq
 
 Use the counts table as the OTU table and the lineage columns as taxonomy.
-Emu writes the full lineage — species through superkingdom — before the sample
-columns, so split the frame at the first barcode column.
+Emu writes the lineage before the sample columns, so split the frame at the
+first column whose name begins `barcode` — position 8 in the species tables,
+7 in genus, 3 in phylum. Find it rather than hard-coding it, so the same script
+works at every rank.
 
 ### Excel
 
@@ -1183,9 +1197,13 @@ sequencing runs into one table, because barcode names collide — every run has 
 `barcode01`. To analyse across runs, load each run's table separately and apply
 that run's barcode map, as in section 16. That is the point at which barcode
 names become sample names and the collision disappears.
+
 ---
 
 ## 20. Troubleshooting
+
+Grouped by where the problem appears. Each entry is the message you will see,
+so searching this page for a phrase from your error is the quickest way in.
 
 ### Setup
 
