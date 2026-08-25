@@ -10,7 +10,24 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Added
+- `nano16s batch -d <dir-of-runs> -o <dir>` processes every run under one
+  directory, into `<dir>/<run-name>/`. A run is any subdirectory holding either
+  `fastq_pass/` or `barcode*` directories; anything else is ignored. Every
+  option a single run takes is passed through to each, so a whole batch shares
+  one set of settings — which is what makes runs comparable. Each run writes
+  its own log beside its results, one failure does not stop the rest, and the
+  command exits non-zero if anything failed. Reports are gathered into
+  `<dir>/reports/` named by run, since they are self-contained files and that
+  directory can be zipped and sent as it is. Re-running a batch resumes:
+  finished work is skipped.
+
 ### Fixed
+- A symlinked `fastq_pass` is no longer reported as having no barcode
+  directories. The count used `find` without `-L`, so a symlink was not a
+  directory to find and the run stopped while `ls` showed the barcodes plainly.
+  Collecting runs under one parent by symlink, rather than copying gigabytes,
+  is the natural way to prepare a batch.
 - The guide documents both ways WSL2 installs on Windows. A `wsl --install`
   blocked from the Microsoft Store — the norm on managed machines — sits at 0%
   rather than reporting an error, and the `--web-download` route that works

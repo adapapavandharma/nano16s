@@ -48,11 +48,7 @@ a placeholder — substitute your own run directory wherever you see
 17. [Interpreting 16S results](#17-interpreting-16s-results)
 18. [Re-running and changing settings](#18-re-running-and-changing-settings)
 19. [Processing several runs](#19-processing-several-runs)
-    - [Name the runs you want](#name-the-runs-you-want)
-    - [Or process everything in a directory](#or-process-everything-in-a-directory)
     - [Leave it running overnight](#leave-it-running-overnight)
-    - [Check what finished](#check-what-finished)
-    - [Collect the reports](#collect-the-reports)
     - [Comparing runs](#comparing-runs)
 20. [Troubleshooting](#20-troubleshooting)
     - [Setup](#setup)
@@ -1081,130 +1077,112 @@ discard existing work by design, which is what makes resuming possible.
 
 ## 19. Processing several runs
 
-nano16s does one run per invocation, so several runs means a loop — each into
-its own output directory, one at a time. Run them concurrently and they compete
-for the same cores, finish no sooner, and make a failure harder to attribute.
-
-### Name the runs you want
-
-Put the run names in `RUNS` and the loop does the rest. This example uses the
-demo datasets from section 7; substitute your own directory names.
+Point `nano16s batch` at a directory holding several runs and it processes
+every one of them, into its own subdirectory of the output:
 
 ```bash
-DATA=~/data                 # holds Flongle_Demo01/, MinION_Demo01/, ...
-OUT=~/nano16s_out           # one subdirectory per run appears here
-RUNS="Flongle_Demo01 Flongle_Demo02 MinION_Demo01"
-
-mkdir -p "$OUT"
-for name in $RUNS; do
-    printf '=== %s ===\n' "$name"
-    if nano16s -d "$DATA/$name/fastq_pass" -o "$OUT/$name" -y \
-           > "$OUT/$name.log" 2>&1; then
-        printf '    done\n'
-    else
-        printf '    FAILED — see %s\n' "$OUT/$name.log"
-    fi
-done
+nano16s batch -d ~/data -o ~/results
 ```
 
-Each run gets its own log, so a failure is one file to look at rather than a
-scrollback to search. A failed run does not stop the others, and because
-completed work is skipped, re-running the loop afterwards costs only the runs
-that did not finish.
+If `~/data` holds `Flongle_Demo01/`, `Flongle_Demo02/` and `MinION_Demo01/`,
+that is the whole job — three runs, three sets of tables and reports, one
+command. It prints what it found before starting:
 
-### Or process everything in a directory
+```
+nano16s 1.1.0 — batch of 3 run(s)
+  input     /home/you/data
+  output    /home/you/results
+  runs      Flongle_Demo01 Flongle_Demo02 MinION_Demo01
 
-Same thing without naming each run — useful when a folder holds every run from
-a sequencing campaign:
+=== [1/3] Flongle_Demo01 ===
+    done
+=== [2/3] Flongle_Demo02 ===
+    done
+=== [3/3] MinION_Demo01 ===
+    done
+
+Batch finished: 3 of 3 succeeded.
+  results   /home/you/results/<run>/
+  reports   /home/you/results/reports  (6 files)
+```
+
+**What counts as a run.** Any subdirectory of `-d` holding either a
+`fastq_pass/` directory — what MinKNOW writes — or `barcode*` directories
+directly. Anything else in there is ignored, so a stray `notes.txt` or an
+old analysis folder does no harm.
+
+**Where things land.**
+
+```
+~/results/
+├── Flongle_Demo01/              a complete run directory, exactly as a single run
+├── Flongle_Demo01.log           everything that run printed
+├── Flongle_Demo02/
+├── Flongle_Demo02.log
+├── MinION_Demo01/
+├── MinION_Demo01.log
+└── reports/                     every report, named by run
+    ├── Flongle_Demo01_report.html
+    ├── Flongle_Demo01_performance_report.html
+    └── ...
+```
+
+The `reports/` folder is the one to share. The reports are self-contained
+single files, so it can be zipped and emailed as it is — five runs come to
+well under a megabyte.
+
+**Settings apply to the whole batch.** Every option a single run takes is
+passed through unchanged:
 
 ```bash
-DATA=~/data
-OUT=~/nano16s_out
-
-mkdir -p "$OUT"
-for dir in "$DATA"/*/; do
-    name=$(basename "$dir")
-    [ -d "$dir/fastq_pass" ] || continue      # skip anything that is not a run
-    printf '=== %s ===\n' "$name"
-    nano16s -d "$dir/fastq_pass" -o "$OUT/$name" -y \
-        > "$OUT/$name.log" 2>&1 \
-        || printf '    FAILED — see %s\n' "$OUT/$name.log"
-done
+nano16s batch -d ~/data -o ~/results --min-quality 12 --min-length 1300 -c 8
 ```
+
+This is the point of the batch command for comparison work: one set of
+settings, applied identically, with no chance of a run drifting. Preview the
+whole thing first with `-n`, which lists the steps for every run and stops.
+
+**One failure does not stop the rest.** A run that fails is reported, its log
+named, and the batch carries on:
+
+```
+=== [2/3] Flongle_Demo02 ===
+    FAILED — see /home/you/results/Flongle_Demo02.log
+
+Batch finished: 2 of 3 succeeded.
+  failed    Flongle_Demo02
+  logs      /home/you/results/<run>.log
+```
+
+The command exits non-zero if anything failed, so it can be used in a script.
+Because completed work is skipped, running the same batch again costs only the
+runs that did not finish — fix the cause and repeat the command.
 
 ### Leave it running overnight
 
-A batch of large runs takes hours. Put the loop in a file and start it with
-`nohup`, and it survives closing the terminal:
+A batch of large runs takes hours. `nohup` keeps it going after the terminal
+closes:
 
 ```bash
-cat > ~/run_all.sh <<'SH'
-DATA=~/data
-OUT=~/nano16s_out
-RUNS="Flongle_Demo01 Flongle_Demo02 Flongle_Demo03 MinION_Demo01 PromethION_Demo01"
+nohup nano16s batch -d ~/data -o ~/results > ~/batch.log 2>&1 &
 
-mkdir -p "$OUT"
-for name in $RUNS; do
-    printf '=== %s ===\n' "$name"
-    nano16s -d "$DATA/$name/fastq_pass" -o "$OUT/$name" -y \
-        > "$OUT/$name.log" 2>&1 \
-        || printf '    FAILED — see %s\n' "$OUT/$name.log"
-done
-printf '\nAll runs attempted.\n'
-SH
-
-nohup bash ~/run_all.sh > ~/nano16s_out/batch.log 2>&1 &
-tail -f ~/nano16s_out/batch.log     # Ctrl-C stops watching, not the batch
+tail -f ~/batch.log     # Ctrl-C stops watching, not the batch
 ```
 
-### Check what finished
-
-```bash
-for d in ~/nano16s_out/*/; do
-    name=$(basename "$d")
-    if [ -f "$d/nano16s_report.html" ]; then
-        printf '  ok         %s\n' "$name"
-    else
-        printf '  no report  %s\n' "$name"
-    fi
-done
-```
-
-A run with no report either failed or has not started; its `.log` says which.
-
-### Collect the reports
-
-Every run writes its reports under its own directory, which is awkward to
-share. Gather them into one folder, renamed by run:
-
-```bash
-mkdir -p ~/all_reports
-for d in ~/nano16s_out/*/; do
-    name=$(basename "$d")
-    [ -f "$d/nano16s_report.html" ] && \
-        cp "$d/nano16s_report.html" ~/all_reports/"${name}_report.html"
-    [ -f "$d/performance_report.html" ] && \
-        cp "$d/performance_report.html" ~/all_reports/"${name}_performance.html"
-done
-
-ls -1sh ~/all_reports
-```
-
-The reports are self-contained, so the folder can be zipped and emailed as it
-is — five runs come to well under a megabyte. Section 12 covers opening them.
+The batch never prompts, so nothing can stall waiting for an answer.
 
 ### Comparing runs
 
-**Keep settings identical across runs you intend to compare.** A different
-length window, quality threshold or database makes the results incomparable,
-and nothing in the tables will say so — check the Methods paragraph of each
-report, which records all three.
+**Keep settings identical across runs you intend to compare.** Running the
+whole set through one `nano16s batch` command is the simplest way to guarantee
+it. If you compare runs done separately, check the Methods paragraph of each
+report — it records the length window, quality threshold and database version.
 
 The combined tables stay per-run: nano16s does not merge samples from different
-sequencing runs into one table, because barcode names collide (every run has a
-`barcode01`). To analyse across runs, load each run's table separately and
-apply that run's barcode map, as in section 16 — that is the point at which
-barcode names become sample names and the collision disappears.
+sequencing runs into one table, because barcode names collide — every run has a
+`barcode01`. To analyse across runs, load each run's table separately and apply
+that run's barcode map, as in section 16. That is the point at which barcode
+names become sample names and the collision disappears.
 ---
 
 ## 20. Troubleshooting
@@ -1442,6 +1420,10 @@ settings, which usually answers the first three questions at once.
 
 Subcommands: `nano16s db build`, `nano16s db list`, `nano16s test`,
 `nano16s --version`.
+
+`nano16s batch -d <dir-of-runs> -o <dir>` processes every run under one
+directory, into `<dir>/<run-name>/`, passing all the options above through
+to each. See section 19.
 
 ### Paths
 

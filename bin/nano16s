@@ -59,6 +59,7 @@ nano16s — Nanopore full-length 16S rRNA amplicon analysis
 
 USAGE
     nano16s -d <fastq_pass_dir> [OPTIONS]
+    nano16s batch -d <dir_of_runs> -o <dir> [OPTIONS]
     nano16s db build [--version YYYY.MM]
     nano16s db list
     nano16s test
@@ -82,6 +83,16 @@ OPTIONS
     -y, --yes               don't prompt for confirmation
     -h, --help              this message
 
+BATCH
+    `nano16s batch` processes every run under one directory, one after another,
+    into <output>/<run-name>/. A run is a subdirectory holding either
+    fastq_pass/ or barcode* directories. Every option above is passed through
+    to each run, so a whole batch shares one set of settings.
+
+    Each run writes <output>/<run-name>.log, one run failing does not stop the
+    rest, and the reports are gathered into <output>/reports/ named by run.
+    Re-running the batch resumes: finished work is skipped.
+
 EXAMPLES
     # first time: build the reference database (~10 min, once)
     nano16s db build
@@ -94,6 +105,9 @@ EXAMPLES
 
     # keep only near-full-length, higher-quality reads
     nano16s -d ./fastq_pass --min-quality 12 --min-length 1300 --max-length 1800
+
+    # analyse every run under ~/data in one command
+    nano16s batch -d ~/data -o ~/results
 
 OUTPUT
     results/
@@ -208,12 +222,115 @@ cmd_test() {
     exec python3 "$ROOT/test/check_demo.py" "$out"
 }
 
+# A directory of runs in one command, so a sequencing campaign does not have to
+# become a hand-written shell loop. Each run is a separate invocation of this
+# script: they share no state, so one failing cannot affect another, and a
+# re-run of the batch skips whatever already finished.
+cmd_batch() {
+    local parent="" out="" pass=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -d|--input-dir)  need_value "$@"; parent="$2"; shift 2 ;;
+            -o|--output-dir) need_value "$@"; out="$2";    shift 2 ;;
+            -h|--help)       usage ;;
+            *)               pass+=("$1");                 shift ;;
+        esac
+    done
+
+    [[ -n "$parent" ]] || die "batch needs -d, the directory that holds your runs."
+    [[ -d "$parent" ]] || die "input directory not found: $parent"
+    [[ -n "$out"    ]] || die "batch needs -o, the directory to write results into."
+    parent="$(cd "$parent" && pwd)"
+
+    # A fastq_pass given directly is one run, not a batch. Say so, rather than
+    # reporting that no runs were found inside it -- which is true but unhelpful.
+    if compgen -G "$parent/barcode*" >/dev/null; then
+        die "$parent is a single run, not a directory of runs.
+       Use:  nano16s -d $parent -o <output>"
+    fi
+
+    # Both layouts are common: a run directory holding fastq_pass/, which is
+    # what MinKNOW writes, and a directory of fastq_pass directories.
+    local names=() inputs=() d name
+    for d in "$parent"/*/; do
+        d="${d%/}"
+        name="$(basename "$d")"
+        if [[ -d "$d/fastq_pass" ]]; then
+            names+=("$name"); inputs+=("$d/fastq_pass")
+        elif compgen -G "$d/barcode*" >/dev/null; then
+            names+=("$name"); inputs+=("$d")
+        fi
+    done
+
+    (( ${#names[@]} )) || die "no runs found in $parent
+       A run is a subdirectory holding either fastq_pass/ or barcode* directories."
+
+    mkdir -p "$out"
+    out="$(cd "$out" && pwd)"
+
+    printf 'nano16s %s — batch of %d run(s)\n' "$VERSION" "${#names[@]}"
+    printf '  input     %s\n'   "$parent"
+    printf '  output    %s\n'   "$out"
+    printf '  runs      %s\n\n' "${names[*]}"
+
+    local ok=() failed=() i
+    for i in "${!names[@]}"; do
+        printf '=== [%d/%d] %s ===\n' "$(( i + 1 ))" "${#names[@]}" "${names[$i]}"
+        # Each run writes its own log, so a failure is one file to open rather
+        # than a shared scrollback to search. -y because a batch is unattended
+        # by definition: a confirmation prompt would stall it overnight.
+        if "$BIN_DIR/nano16s" -d "${inputs[$i]}" -o "$out/${names[$i]}" -y \
+                ${pass[@]+"${pass[@]}"} > "$out/${names[$i]}.log" 2>&1; then
+            ok+=("${names[$i]}")
+            printf '    done\n'
+        else
+            # Carry on. One bad run in twenty must not cost the other nineteen.
+            failed+=("${names[$i]}")
+            printf '    FAILED — see %s\n' "$out/${names[$i]}.log"
+        fi
+    done
+
+    # The reports gathered in one place and named by run. They are
+    # self-contained single files, so this directory can be zipped and sent as
+    # it is -- which is otherwise a second thing to work out by hand.
+    local reports="$out/reports" copied=0 r
+    for name in ${ok[@]+"${ok[@]}"}; do
+        for r in nano16s_report performance_report; do
+            if [[ -f "$out/$name/$r.html" ]]; then
+                mkdir -p "$reports"
+                cp "$out/$name/$r.html" "$reports/${name}_${r#nano16s_}.html"
+                copied=$(( copied + 1 ))
+            fi
+        done
+    done
+
+    printf '\nBatch finished: %d of %d succeeded.\n' "${#ok[@]}" "${#names[@]}"
+    # `if`, not `[[ ... ]] && printf`: that form's false branch becomes the
+    # function's exit status, which is the bug fixed at the end of a single run.
+    if (( ${#failed[@]} )); then
+        printf '  failed    %s\n' "${failed[*]}"
+        printf '  logs      %s/<run>.log\n' "$out"
+    fi
+    printf '  results   %s/<run>/\n' "$out"
+    if (( copied )); then
+        printf '  reports   %s  (%d files)\n' "$reports" "$copied"
+    fi
+
+    # Non-zero if anything failed, so the batch is usable in a script. Exit
+    # rather than return: the dispatch case below falls through to the
+    # single-run argument parser, which would then try to run the batch's
+    # parent directory as though it were one fastq_pass.
+    (( ${#failed[@]} == 0 )) || exit 1
+    exit 0
+}
+
 # =============================================================================
 # dispatch
 # =============================================================================
 case "${1:-}" in
     db)              shift; cmd_db "$@" ;;
     test)            shift; cmd_test "$@" ;;
+    batch)           shift; cmd_batch "$@" ;;
     -h|--help|"")    usage ;;
     --version)       echo "nano16s $VERSION"; exit 0 ;;
 esac
@@ -251,7 +368,12 @@ need_int --min-quality "$MIN_QUALITY"
        A window that excludes everything filters every read out, and the run
        finishes with empty tables rather than an error."
 
-BARCODES="$(find "$INPUT_DIR" -maxdepth 1 -type d -name 'barcode*' | wc -l | tr -d ' ')"
+# -L, so a symlinked fastq_pass is counted. Without it a symlink is not a
+# directory to find, the count comes back zero, and the run stops saying there
+# are no barcode directories while ls shows them. Collecting runs under one
+# parent by symlink, rather than copying gigabytes, is the natural way to
+# prepare a batch.
+BARCODES="$(find -L "$INPUT_DIR" -maxdepth 1 -type d -name 'barcode*' | wc -l | tr -d ' ')"
 (( BARCODES > 0 )) || die "no barcode* directories inside $INPUT_DIR
        Point -d at the fastq_pass folder that contains barcode01/, barcode02/, ..."
 
