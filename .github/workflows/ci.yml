@@ -220,11 +220,23 @@ jobs:
   # external FTP server, so it is not on the push path — weekly and on
   # demand only.
   # ---------------------------------------------------------------------
+  # macOS is here because it is the only job that executes a rule on it. The
+  # install job builds the DAG and stops, so nothing ran Emu, Porechop or
+  # Chopper on a Mac -- and macOS ships bash 3.2 as /bin/bash, which is the
+  # shell Snakemake runs rule bodies with. Bash before 4.4 treats
+  # "${arr[@]}" as unset when the array is empty, so a rule that expands one
+  # dies under `set -u` on macOS and nowhere else. That reached a user.
   pipeline:
-    name: full pipeline (weekly)
+    name: full pipeline (weekly, ${{ matrix.os }})
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing must not cancel the other: which platforms fail
+      # is the finding, and cancelling the sibling throws half of it away.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    timeout-minutes: 180
     defaults:
       run:
         shell: bash -el {0}
@@ -236,11 +248,36 @@ jobs:
           if command -v conda >/dev/null; then
             echo "conda already present: $(conda --version)"
           else
+            # Same platform mapping as the install job. This was hard-coded to
+            # the Linux build while the job was Linux-only.
+            case "$(uname -s)-$(uname -m)" in
+              Darwin-arm64)  SFX=MacOSX-arm64 ;;
+              Darwin-x86_64) SFX=MacOSX-x86_64 ;;
+              Linux-x86_64)  SFX=Linux-x86_64 ;;
+              Linux-aarch64) SFX=Linux-aarch64 ;;
+              *) echo "unsupported platform: $(uname -s)-$(uname -m)" >&2; false ;;
+            esac
             curl -fsSL -o /tmp/miniforge.sh \
-              "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+              "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-${SFX}.sh"
             bash /tmp/miniforge.sh -b -p "$HOME/miniforge3"
             echo "$HOME/miniforge3/bin" >> "$GITHUB_PATH"
+            echo "installed Miniforge for ${SFX}"
           fi
+
+      - name: Record the shell the rules will run under
+        run: |
+          # Snakemake picks its shell with shutil.which("bash"), so what the
+          # rules actually run under is whatever PATH resolves -- not
+          # necessarily /bin/bash. On a Mac with no newer bash installed those
+          # are the same thing and it is 3.2; on a runner carrying a Homebrew
+          # bash they are not. Both are printed because the difference decides
+          # whether this job covers the pre-4.4 empty-array behaviour at all,
+          # and that belongs in the log rather than in an assumption. The
+          # static check in test/test_shell_portability.py is what actually
+          # guards that class of bug; this job's value is running the rules on
+          # macOS at all.
+          echo "PATH bash:  $(command -v bash) -> $(bash --version | head -1)"
+          echo "/bin/bash:  $(/bin/bash --version | head -1)"
 
       # Same reasoning as the install job: let install.sh build the
       # environment itself rather than handing it a pre-built one, so this
@@ -323,7 +360,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: demo-results
+          # Per platform: upload-artifact@v4 rejects a second upload under a
+          # name already used in the run, so a shared name would fail the
+          # second leg to finish.
+          name: demo-results-${{ matrix.os }}
           path: |
             ${{ runner.temp }}/demo/nano16s_test_*/nano16s_report.html
             ${{ runner.temp }}/demo/nano16s_test_*/performance_report.html

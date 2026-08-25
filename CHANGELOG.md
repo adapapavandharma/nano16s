@@ -21,8 +21,27 @@ report, so a result can always be traced to the database that produced it.
   `<dir>/reports/` named by run, since they are self-contained files and that
   directory can be zipped and sent as it is. Re-running a batch resumes:
   finished work is skipped.
+- `test/test_shell_portability.py` checks every rule's shell body for array
+  expansions that are not guarded by a count first. It is a static scan, so it
+  catches this class on any platform and on every pull request, rather than
+  waiting for the weekly macOS run.
 
 ### Fixed
+- `rule emu` no longer fails on macOS for barcodes that produce no thresholded
+  table — which is most of them. The rule expanded `"${THRESH[@]}"` without
+  checking the count first, and bash before 4.4 treats that as an unset
+  variable when the array is empty. Snakemake runs rule bodies under `set -u`
+  and picks its shell with `shutil.which("bash")`, which on a Mac with no newer
+  bash installed is `/bin/bash` — still 3.2. Emu writes a thresholded table
+  only when some taxon falls below `--min-abundance`, so the failure hit the
+  ordinary case and not the unusual one. The neighbouring `REL` and `CNT`
+  arrays were already guarded this way.
+- The weekly full-pipeline job runs on macOS as well as Linux. It was Linux
+  only, and the macOS jobs install the CLI and build the workflow graph without
+  ever executing a rule, so no test had run Emu, Porechop or Chopper on a Mac.
+  That is how the bug above reached a user. Artifacts are named per platform,
+  because `upload-artifact@v4` rejects a repeated name, and one platform
+  failing no longer cancels the other.
 - The guide said `-y` skips "the confirmation", implying a run normally asks
   for one. There is exactly one prompt and it appears only when free disk looks
   insufficient.

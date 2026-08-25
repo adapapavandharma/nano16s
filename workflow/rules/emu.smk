@@ -101,11 +101,22 @@ PY
         # Emu's thresholded table is a legitimate secondary output, so keep it
         # -- but under a predictable name, so it reads as what it is and cannot
         # be mistaken for the result again.
+        #
+        # The count is checked before the array is expanded, as it is for REL
+        # and CNT. Not style: bash before 4.4 treats "${{THRESH[@]}}" as an
+        # unset variable when the array is empty, and this runs under `set -u`,
+        # so the expansion aborts the rule with `THRESH[@]: unbound variable`.
+        # macOS ships bash 3.2 as /bin/bash, which is what Snakemake runs, and
+        # Emu writes a thresholded table only when some taxon falls below
+        # --min-abundance -- so on macOS the rule failed for every barcode that
+        # did *not* trigger the threshold, which is the ordinary case.
         THRESH=( {params.outdir}/*_rel-abundance-threshold-*.tsv )
-        for t in "${{THRESH[@]}}"; do
-            keep="{params.outdir}/{wildcards.sample}_rel-abundance-threshold-${{t##*-threshold-}}"
-            [ "$t" = "$keep" ] || mv -f "$t" "$keep"
-        done
+        if [ "${{#THRESH[@]}}" -gt 0 ]; then
+            for t in "${{THRESH[@]}}"; do
+                keep="{params.outdir}/{wildcards.sample}_rel-abundance-threshold-${{t##*-threshold-}}"
+                [ "$t" = "$keep" ] || mv -f "$t" "$keep"
+            done
+        fi
 
         CNT=( {params.outdir}/*_counts*.tsv )
         if [ "${{#CNT[@]}}" -gt 0 ] \
