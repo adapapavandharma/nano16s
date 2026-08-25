@@ -10,6 +10,41 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Fixed
+- The guide documents both ways WSL2 installs on Windows. A `wsl --install`
+  blocked from the Microsoft Store — the norm on managed machines — sits at 0%
+  rather than reporting an error, and the `--web-download` route that works
+  instead launches Ubuntu inside the PowerShell window, so the Linux username
+  and password are set there rather than in the separate Ubuntu window
+  previously given as the only case.
+- The guide can get a user past `Could not resolve host`, which previously
+  stopped the setup at the Miniforge download with nothing to work from. It
+  distinguishes a blocked network from a broken name lookup, since the two give
+  the same error and need different fixes, and gives a single command for
+  `.wslconfig` — a hand-typed one usually lands on one line, after which WSL
+  ignores the file and the fix reads as tried and ineffective.
+- The guide shows how to reach the output files from a file manager. Under WSL
+  those files are not on `C:`, and one sentence naming the `\\wsl.localhost`
+  path was all the guide offered a user wanting to open, copy or email a report.
+- The guide gives working commands for processing several sequencing runs, not
+  just a bare loop. Naming the runs to process, discovering them in a directory,
+  leaving a long batch running under `nohup`, checking which finished, and
+  gathering every report into one folder to share are each a command to copy.
+  Per-run logs mean a failure is one file to open rather than a scrollback to
+  search, and a failed run no longer takes the rest of the batch with it. It
+  also says what the pipeline will not do — merge samples across runs, since
+  barcode names collide between them.
+- Two cross-references in the guide pointed at the wrong section: keeping track
+  of which barcode is which sample is section 8, not 7, and applying that
+  mapping to the tables is section 16, not 15.
+- The guide gave the disk needed for a demo run as 3× the unpacked reads, where
+  section 10 gives the measured 2.0–2.3×. The higher figure is what nano16s
+  budgets, not what a run uses.
+- Troubleshooting is grouped by where the problem appears — setup, data, during
+  the run, opening the reports, WSL2 — rather than being one list of eighteen
+  entries, and each entry is formatted the same way. Section 13 says which
+  report it is describing, as section 14 already did.
+
 ## [1.1.0] — 2026-08-20
 
 ### Added
