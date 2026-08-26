@@ -124,6 +124,18 @@ nano16s -d ./fastq_pass -c 4
 
 Full list: `nano16s --help`.
 
+### Several runs at once
+
+```bash
+nano16s batch -d ~/data -o ~/results
+```
+
+Processes every run under `~/data` into `~/results/<run-name>/` — a run being
+any subdirectory holding `fastq_pass/` or `barcode*` directories. The options
+above are passed through to each, so the whole batch shares one set of
+settings. Each run writes its own log, one failure does not stop the rest, and
+the reports are gathered into `~/results/reports/` named by run.
+
 ### Choosing the length window
 
 Full-length 16S is about 1,500 bp, so the default 1,000–2,000 bp window keeps

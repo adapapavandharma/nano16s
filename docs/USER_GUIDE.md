@@ -48,7 +48,15 @@ a placeholder — substitute your own run directory wherever you see
 17. [Interpreting 16S results](#17-interpreting-16s-results)
 18. [Re-running and changing settings](#18-re-running-and-changing-settings)
 19. [Processing several runs](#19-processing-several-runs)
+    - [Leave it running overnight](#leave-it-running-overnight)
+    - [Comparing runs](#comparing-runs)
 20. [Troubleshooting](#20-troubleshooting)
+    - [Setup](#setup)
+    - [Your data](#your-data)
+    - [During the run](#during-the-run)
+    - [Opening the reports](#opening-the-reports)
+    - [On WSL2](#on-wsl2)
+    - [Still stuck](#still-stuck)
 21. [Reference](#21-reference)
     - [Command line](#command-line)
     - [Paths](#paths)
@@ -112,7 +120,7 @@ after the barcode directory it came from — `barcode01`, `barcode02`, and so on
 
 Barcode numbers are *not* sample numbers. If you loaded samples on barcodes 5,
 6, 9 and 20, your results have columns `barcode05`, `barcode06`, `barcode09`
-and `barcode20` — not 1 through 4. Section 7 covers keeping track of which is
+and `barcode20` — not 1 through 4. Section 8 covers keeping track of which is
 which.
 
 ---
@@ -135,6 +143,10 @@ know before that is worth doing.
 On Windows everything runs inside WSL2, which is a real Linux environment
 provided by Windows. Section 3 sets it up; you do not need to install Linux
 separately or dual-boot.
+
+> **On a managed work or university machine**, the WSL2 step needs
+> Administrator rights, and the Microsoft Store and external DNS are often
+> blocked by policy. Section 3 and section 20 cover both.
 
 ### Your sequencing data
 
@@ -160,9 +172,10 @@ everything against bundled demo data.
 
 ### What you do not need
 
-No prior bioinformatics experience, no programming, no cluster account, no
-Docker, and no administrator rights beyond the initial WSL2 or Miniforge
-install. Every tool the pipeline uses is installed for you in section 4.
+No prior bioinformatics experience, no programming, no cluster account, and no
+Docker. The only step needing Administrator rights is the WSL2 install on
+Windows; Miniforge and everything after it install into your own home
+directory. Every tool the pipeline uses is installed for you in section 4.
 
 ---
 
@@ -195,7 +208,8 @@ gives you a genuine Ubuntu system inside Windows. You do not lose Windows, and
 your files stay accessible from both sides.
 
 **1. Open PowerShell as Administrator.** Press Start, type `PowerShell`,
-right-click *Windows PowerShell*, choose *Run as administrator*.
+right-click *Windows PowerShell*, choose *Run as administrator*. This is the
+only step that needs Administrator rights.
 
 **2. Install WSL2 with Ubuntu:**
 
@@ -203,37 +217,57 @@ right-click *Windows PowerShell*, choose *Run as administrator*.
 wsl --install
 ```
 
-> This single command needs Windows 11, or Windows 10 version 2004 or newer.
-> On an older Windows 10, `wsl --install` will not be recognised; update
-> Windows first, or follow Microsoft's manual WSL2 install steps.
+> If this sits at **0%** for more than a few minutes, it is blocked from the
+> Microsoft Store rather than installing slowly — common on work machines. Close
+> it and install in two steps instead, restarting the computer between them:
+>
+> ```powershell
+> wsl --install --no-distribution --web-download
+> wsl --install -d Ubuntu --web-download
+> ```
+>
+> On Windows 10 older than version 2004, `wsl --install` is not recognised at
+> all; update Windows first.
 
-**3. Restart your computer** when it asks.
+**3. Restart your computer.** Required even if the install reported success —
+until you restart, WSL commands answer
+`Wsl/WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED`, which looks like a failure and is
+not one.
 
-**4. Finish setting up Ubuntu.** After restarting, an Ubuntu window opens and
-asks for a username and password. These are for Linux and are separate from
-your Windows login. The password will not appear as you type it — that is
-normal.
+**4. Set your Linux username and password.** Ubuntu asks the first time it
+starts. These are for Linux only, unrelated to your Windows login, and **the
+password stays invisible as you type** — not even dots. Depending on how Ubuntu
+started, it asks either in a separate Ubuntu window or inside the PowerShell
+window you are already in. Both are normal; answer wherever you are asked.
 
-If no Ubuntu window opens, press Start and run *Ubuntu*.
+If nothing prompts you, start Ubuntu yourself: press Start and run *Ubuntu*, or
+type `wsl` in PowerShell.
 
-**5. From here on, use the Ubuntu terminal, not PowerShell.** Every command in
-the rest of this guide is typed there. Open it any time from the Start menu.
+**5. From here on, use Ubuntu, not PowerShell.**
 
-**6. Install the two tools Ubuntu does not always ship with.** In the Ubuntu
-terminal:
+| Terminal | Its prompt | Used for |
+|---|---|---|
+| Ubuntu | `you@MACHINE:~$` | every command in this guide |
+| PowerShell | `PS C:\Users\you>` | the `wsl` commands above, and section 20's WSL fixes |
+
+**6. Install the two tools Ubuntu does not always ship with:**
 
 ```bash
 sudo apt update && sudo apt install -y curl git
 ```
 
-It will ask for the Linux password you chose in step 4. This is harmless if
-they are already installed.
+It asks for the Linux password from step 4, and is harmless if they are already
+installed.
 
-> **Where to keep your data.** Work inside the Linux home directory — the
-> place the Ubuntu terminal starts in. You can reach Windows drives under
-> `/mnt/c/`, but reading data across that boundary is several times slower, and
-> it is a common reason for a run taking far longer than it should. Copy your
-> sequencing data into the Linux side first.
+If this reports `Could not resolve host`, Ubuntu has no working DNS — see
+section 20, *Ubuntu cannot download anything*. Everything from here on
+downloads something, so fix it before continuing.
+
+> **Where to keep your data.** Work inside the Linux home directory — where the
+> Ubuntu terminal starts. Windows drives are reachable under `/mnt/c/`, but
+> reading across that boundary is several times slower and is a common reason a
+> run takes far longer than it should. Copy data to the Linux side first;
+> section 12 shows how.
 
 WSL has two failure modes worth knowing about before a long run — a clock that
 drifts from Windows and stops a run near the end, and Windows line endings
@@ -413,11 +447,9 @@ Do this after installing, and again after any change to your conda environment.
 It is much easier to debug a broken install on demo data than three hours into a
 real run.
 
-
 ---
 
 ## 7. Try it on real data
-
 
 The bundled demo is deliberately tiny — six barcodes, enough to prove the
 install works. If you want to see what nano16s does with a real run before you
@@ -449,9 +481,9 @@ unzip Flongle_Demo01.zip
 nano16s -d ~/data/Flongle_Demo01/fastq_pass -o ~/nano16s_out/Flongle_Demo01
 ```
 
-Leave room for the download, the unpacked reads, and roughly 3× the unpacked
-size for the run itself — so about 2 GB all told for `Flongle_Demo01`, and
-around 25 GB for `PromethION_Demo01`. The whole set is about 12 GB downloaded.
+Leave room for the download, the unpacked reads, and 2–3× the unpacked size
+for the run itself — so about 2 GB all told for `Flongle_Demo01`, and around
+25 GB for `PromethION_Demo01`. The whole set is about 12 GB downloaded.
 
 `CHECKSUMS.txt` in the record lets you confirm a download arrived intact:
 
@@ -540,7 +572,8 @@ basecaller's quality filter.
 disk first. The pipeline reads every file several times and network latency
 dominates the runtime. On WSL2 specifically, keep data under the Linux home
 directory and *not* under `/mnt/c/` — crossing the Windows filesystem boundary
-is several times slower.
+is several times slower. Section 12, *Opening your results*, shows how to move
+data between Windows and Ubuntu in both directions.
 
 ### Record which barcode is which sample
 
@@ -556,13 +589,17 @@ barcode05,Control_soil
 CSV
 ```
 
-Section 15 shows how to apply it when loading the tables. Doing this at the
+Section 16 shows how to apply it when loading the tables. Doing this at the
 start rather than at analysis time saves real confusion — barcode numbering and
 sample numbering rarely line up.
 
 ---
 
 ## 9. Choose settings for your amplicon
+
+Three settings are worth a decision before a real run: the length window, the
+quality threshold, and how many cores to give it. The defaults suit
+full-length 16S; the first is the one that will ruin a run if it is wrong.
 
 ### Length window — the setting that matters most
 
@@ -688,8 +725,9 @@ nano16s -d /path/to/your_run/fastq_pass -o my_results
 ```
 
 Before starting, nano16s prints a summary — input, barcode count, database,
-filter settings, cores — and warns if free disk looks insufficient. Add `-y` to
-skip the confirmation when running unattended.
+filter settings, cores — and begins. The one time it stops to ask is when free
+disk looks insufficient for the run; `-y` answers that in advance, which is
+what you want when running unattended.
 
 A full example with non-default settings:
 
@@ -706,6 +744,9 @@ nano16s \
 **If it stops partway** — a crash, a power cut, a closed laptop — run exactly
 the same command again. Completed work is detected and skipped, and the run
 picks up where it stopped.
+
+**More than one run to process?** `nano16s batch` takes a directory of them and
+does the lot in one command — section 19.
 
 ---
 
@@ -740,33 +781,23 @@ number of reads. Use abundances to compare composition between samples; use
 counts for methods that expect count data, such as differential-abundance
 testing.
 
-Both reports are self-contained single files — no internet needed to view them,
-safe to email or attach to a manuscript.
+### Opening your results
 
-### Opening the reports
+Both reports are single self-contained HTML files — no internet needed to view
+them, safe to email or attach to a manuscript. Open one the way you would open
+any web page, or open the whole output directory in your file manager:
 
+| Where you are | Open the report | Open the folder |
+|---|---|---|
+| Linux desktop | `xdg-open nano16s_report.html` | `xdg-open .` |
+| macOS | `open nano16s_report.html` | `open .` |
+| Windows (WSL) | `explorer.exe nano16s_report.html` | `explorer.exe .` |
+| No desktop (SSH, server) | copy it to your own machine — see below | |
 
-The report is one self-contained HTML file — no internet connection, no
-external files, safe to email. Open it the way you would open any web page:
-
-| Where you are | Command |
-|---|---|
-| Linux desktop | `xdg-open nano16s_report.html` |
-| macOS | `open nano16s_report.html` |
-| Windows, via WSL | `explorer.exe nano16s_report.html` |
-| No desktop (SSH, server) | copy it to your own machine first — see below |
-
-On Ubuntu, `open` is an alias for `xdg-open`, so both work there.
-
-You can also double-click the file in your file manager. From WSL, the reports
-appear under `\\wsl.localhost\Ubuntu\home\<you>\...` in Windows Explorer.
-
-Over SSH there is no desktop for the server to open a window on, so bring the
-file to you:
-
-```bash
-scp you@server:/path/to/my_results/nano16s_report.html .
-```
+The `.` means *here*, so run it from inside your output directory; `pwd` prints
+the full path if you need it. On Ubuntu, `open` is an alias for `xdg-open`. On
+Linux, if nothing happens, name the file manager directly — `nautilus .`,
+`dolphin .` or `thunar .`.
 
 **Do not put results under `/tmp`.** On Ubuntu the default Firefox is a
 **snap**, and a snap gets its own private `/tmp` — so the browser genuinely
@@ -782,11 +813,54 @@ cp /tmp/nano16s_test_*/nano16s_report.html ~/
 xdg-open ~/nano16s_report.html
 ```
 
+#### On Windows
+
+Ubuntu's files are not on your `C:` drive. Windows reaches them over a
+network-style path, which is normal — they are still on your own machine:
+
+```
+\\wsl.localhost\Ubuntu\home\<your-linux-username>
+```
+
+Paste that into the Explorer address bar, or use the **Linux** entry at the
+bottom of the Explorer sidebar. Right-click your results folder there and
+choose *Pin to Quick access* to keep it one click away. `whoami` in Ubuntu
+prints your Linux username if you have forgotten it.
+
+Your Windows drives work the other way round, which is how you copy sequencing
+data in:
+
+```bash
+cp -r /mnt/c/Users/YourWindowsName/Desktop/fastq_pass ~/
+```
+
+Copy rather than running from `/mnt/c/` directly — reading across that boundary
+is several times slower.
+
+> Browse and copy through Explorer freely, but **edit files inside Ubuntu**.
+> Saving into `\\wsl.localhost\...` from a Windows editor can change line
+> endings and strip the executable bit, which breaks scripts — the `$'{\r'`
+> error in section 20.
+
+#### On a server with no desktop
+
+There is no window to open, so copy the results to your own machine. Run this
+on your own computer, not the server:
+
+```bash
+scp you@server:/home/you/my_results/*.html ~/Desktop/
+scp -r you@server:/home/you/my_results/07_emu_combined ~/Desktop/
+```
+
+That is the reports and the tables — a few megabytes. The rest of the output
+directory is intermediate FASTQ and rarely worth moving.
+
 ---
 
 ## 13. Read the results report
 
-
+Open `nano16s_report.html`. This is the biology — what was found in each
+sample, and how much of it.
 
 **Read funnel.** Reads per barcode before and after filtering. What you want is
 consistency: barcodes retaining broadly similar proportions. One barcode
@@ -883,8 +957,14 @@ the reads look the way full-length 16S data should.
 
 ## 16. Use the tables downstream
 
-The combined tables are plain tab-separated text. Rows are taxa, columns are
-barcodes.
+The combined tables are plain tab-separated text. Rows are taxa. The first
+columns are the taxonomic lineage — how many depends on the rank — and the rest
+are one column per barcode.
+
+**Match columns by name, not by position.** Barcode columns are not in sorted
+order, and the lineage columns before them differ by rank — seven in the
+species tables, six in genus, two in phylum. Every example below matches on
+name, which is why none of them breaks when you switch rank.
 
 ### R
 
@@ -912,8 +992,10 @@ ab = ab.rename(columns=dict(zip(mapping["barcode"], mapping["sample"])))
 ### phyloseq
 
 Use the counts table as the OTU table and the lineage columns as taxonomy.
-Emu writes the full lineage — species through superkingdom — before the sample
-columns, so split the frame at the first barcode column.
+Emu writes the lineage before the sample columns, so split the frame at the
+first column whose name begins `barcode` — position 8 in the species tables,
+7 in genus, 3 in phylum. Find it rather than hard-coding it, so the same script
+works at every rank.
 
 ### Excel
 
@@ -1009,62 +1091,166 @@ discard existing work by design, which is what makes resuming possible.
 
 ## 19. Processing several runs
 
-Give each run its own output directory and loop:
+Point `nano16s batch` at a directory holding several runs and it processes
+every one of them, into its own subdirectory of the output:
 
 ```bash
-for run in /path/to/runs/*/; do
-    name=$(basename "$run")
-    [ -d "$run/fastq_pass" ] || continue
-    echo "=== $name ==="
-    nano16s -d "$run/fastq_pass" -o "/path/to/results/$name" -y \
-        || echo "$name FAILED — continuing"
-done
+nano16s batch -d ~/data -o ~/results
 ```
 
-Points worth noting:
+If `~/data` holds `Flongle_Demo01/`, `Flongle_Demo02/` and `MinION_Demo01/`,
+that is the whole job — three runs, three sets of tables and reports, one
+command. It prints what it found before starting:
 
-- **Run them one at a time.** Concurrent runs compete for the same cores and
-  finish no sooner, and a failure is harder to attribute.
-- `|| echo ... ` keeps one bad run from ending the loop.
-- Because completed work is skipped, re-running the loop after a failure costs
-  only the runs that did not finish.
-- **Keep settings identical across runs you intend to compare.** A different
-  length window or database makes the results incomparable.
+```
+nano16s 1.1.0 — batch of 3 run(s)
+  input     /home/you/data
+  output    /home/you/results
+  runs      Flongle_Demo01 Flongle_Demo02 MinION_Demo01
+
+=== [1/3] Flongle_Demo01 ===
+    done
+=== [2/3] Flongle_Demo02 ===
+    done
+=== [3/3] MinION_Demo01 ===
+    done
+
+Batch finished: 3 of 3 succeeded.
+  results   /home/you/results/<run>/
+  reports   /home/you/results/reports  (6 files)
+```
+
+**What counts as a run.** Any subdirectory of `-d` holding either a
+`fastq_pass/` directory — what MinKNOW writes — or `barcode*` directories
+directly. Anything else in there is ignored, so a stray `notes.txt` or an
+old analysis folder does no harm.
+
+**Where things land.**
+
+```
+~/results/
+├── Flongle_Demo01/              a complete run directory, exactly as a single run
+├── Flongle_Demo01.log           everything that run printed
+├── Flongle_Demo02/
+├── Flongle_Demo02.log
+├── MinION_Demo01/
+├── MinION_Demo01.log
+└── reports/                     every report, named by run
+    ├── Flongle_Demo01_report.html
+    ├── Flongle_Demo01_performance_report.html
+    └── ...
+```
+
+The `reports/` folder is the one to share. The reports are self-contained
+single files, so it can be zipped and emailed as it is — five runs come to
+well under a megabyte.
+
+**Settings apply to the whole batch.** Every option a single run takes is
+passed through unchanged:
+
+```bash
+nano16s batch -d ~/data -o ~/results --min-quality 12 --min-length 1300 -c 8
+```
+
+This is the point of the batch command for comparison work: one set of
+settings, applied identically, with no chance of a run drifting. Preview the
+whole thing first with `-n`, which lists the steps for every run and stops.
+
+**One failure does not stop the rest.** A run that fails is reported, its log
+named, and the batch carries on:
+
+```
+=== [2/3] Flongle_Demo02 ===
+    FAILED — see /home/you/results/Flongle_Demo02.log
+
+Batch finished: 2 of 3 succeeded.
+  failed    Flongle_Demo02
+  logs      /home/you/results/<run>.log
+```
+
+The command exits non-zero if anything failed, so it can be used in a script.
+Because completed work is skipped, running the same batch again costs only the
+runs that did not finish — fix the cause and repeat the command.
+
+### Leave it running overnight
+
+A batch of large runs takes hours. `nohup` keeps it going after the terminal
+closes:
+
+```bash
+nohup nano16s batch -d ~/data -o ~/results > ~/batch.log 2>&1 &
+
+tail -f ~/batch.log     # Ctrl-C stops watching, not the batch
+```
+
+The batch never prompts, so nothing can stall waiting for an answer.
+
+### Comparing runs
+
+**Keep settings identical across runs you intend to compare.** Running the
+whole set through one `nano16s batch` command is the simplest way to guarantee
+it. If you compare runs done separately, check the Methods paragraph of each
+report — it records the length window, quality threshold and database version.
+
+The combined tables stay per-run: nano16s does not merge samples from different
+sequencing runs into one table, because barcode names collide — every run has a
+`barcode01`. To analyse across runs, load each run's table separately and apply
+that run's barcode map, as in section 16. That is the point at which barcode
+names become sample names and the collision disappears.
 
 ---
 
 ## 20. Troubleshooting
 
+Grouped by where the problem appears. Each entry is the message you will see,
+so searching this page for a phrase from your error is the quickest way in.
+
+### Setup
+
 **`nano16s: command not found`**
+
 Run `conda activate nano16s`. Needed in every new terminal.
 
+**`no Emu database found`**
+
+Run `nano16s db build` (about ten minutes, once).
+
+### Your data
+
 **`no barcode* directories inside ...`**
+
 `-d` is one level too high or too low. It wants the directory that directly
 contains `barcode01/`. Find it with
 `find /path/to/your_run -type d -name fastq_pass`.
 
-**`no Emu database found`**
-Run `nano16s db build` (about ten minutes, once).
-
 **`no .fastq.gz files in ...`**
+
 That barcode directory is empty, or holds uncompressed `.fastq`. Compress them,
 or remove the directory if the barcode genuinely produced nothing.
 
-**A barcode kept almost no reads**
-Its reads fall outside your length window. Check the median read length in the
-report and widen `--min-length` / `--max-length` if that length is expected for
-your amplicon.
+### During the run
 
 **The run stopped partway**
+
 Run the same command again. Completed steps are skipped.
 
 **Porechop is slow**
+
 Expected — it is the slowest stage by a wide margin because it infers adapter
 sequences from your data instead of assuming them. Budget a few minutes per
 barcode.
 
 **The run is using less of my CPU than expected**
+
 See the Machine use section of the performance report, and section 14.
+
+**A barcode kept almost no reads**
+
+Its reads fall outside your length window. Check the median read length in the
+report and widen `--min-length` / `--max-length` if that length is expected for
+your amplicon.
+
+### Opening the reports
 
 **The browser says *File not found* for a report that `ls` shows is there**
 
@@ -1116,7 +1302,84 @@ machine instead (section 12).
 
 ### On WSL2
 
+**`wsl --install` sits at 0%**
+
+Blocked from the Microsoft Store, not installing slowly. Use the two-step
+`--web-download` commands in section 3.
+
+**`Wsl/WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED`**
+
+Expected between installing WSL and restarting, even when the install reported
+success. Restart Windows and run the command again.
+
+**Ubuntu cannot download anything**
+
+```
+curl: (6) Could not resolve host: github.com
+```
+
+Ubuntu is running but cannot turn a name into an address, so `apt`, `git clone`,
+Miniforge and the database build all fail. Common on managed work networks.
+
+First find out whether it is only name lookup that is broken, or the network
+itself. These two need different fixes and give the same error:
+
+```bash
+getent hosts github.com                                    # can it look up a name?
+timeout 5 bash -c 'exec 3<>/dev/tcp/1.1.1.1/80' && echo OK  # can it connect at all?
+```
+
+If the first prints nothing but the second prints `OK`, only DNS is broken and
+the fixes below apply. If neither works, the network itself is blocked — an IT
+request, not something WSL can be configured around.
+
+**Fix — let WSL use the Windows network stack.** In **PowerShell**, as one
+command:
+
+```powershell
+Set-Content -Path "$env:USERPROFILE\.wslconfig" -Encoding ascii -Value '[wsl2]','networkingMode=mirrored','dnsTunneling=true'
+```
+
+Then `wsl --shutdown`, reopen Ubuntu and retry. Needs Windows build 22621 or
+higher — `wsl --version` reports the build on its last line.
+
+> Use that command as written rather than typing the file by hand. `.wslconfig`
+> needs three separate lines, and if it ends up on one, WSL reports
+> `Expected ' ' or '\n' in ...\.wslconfig:1` at every launch and **ignores the
+> file**, so the fix appears not to work when it was never applied. If you see
+> that message, delete the file with
+> `Remove-Item "$env:USERPROFILE\.wslconfig"` and run the command above.
+
+**If that is unavailable or does not help**, point Ubuntu at the DNS servers
+Windows itself uses. Public resolvers such as `8.8.8.8` are often blocked on
+managed networks, which is why these are the ones to copy. In **PowerShell**:
+
+```powershell
+Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object ServerAddresses
+```
+
+Then in **Ubuntu**, using the addresses for the adapter you are connected
+through:
+
+```bash
+sudo tee -a /etc/wsl.conf >/dev/null <<'END'
+
+[network]
+generateResolvConf = false
+END
+sudo rm -f /etc/resolv.conf
+printf 'nameserver 10.0.0.1\nnameserver 10.0.0.2\n' | sudo tee /etc/resolv.conf
+```
+
+Replace those two addresses with the ones PowerShell printed.
+
+Run `wsl --shutdown` in PowerShell, reopen Ubuntu and retry.
+
+A VPN can also take DNS over in a way WSL2 does not follow — disconnect and
+retry before assuming anything else.
+
 **`has older modification time`, or `the counts table … is empty`**
+
 WSL's clock drifts from the Windows host and can resynchronise mid-run, leaving
 a file with a timestamp behind its own input. Snakemake reads that as a
 corrupted build, deletes the output and stops — often near the end of a long
@@ -1134,11 +1397,13 @@ more than a second or two apart is the cause. Keeping the machine awake during
 a run avoids it.
 
 **Everything is slow**
+
 Check your data is not under `/mnt/c/`. Crossing the Windows filesystem
 boundary is several times slower than the Linux filesystem. Copy the run into
 your Linux home directory first.
 
 **`syntax error near unexpected token $'{\r'`**
+
 A file has Windows line endings, usually from editing the repository through
 Windows. Re-clone, or run `dos2unix` on the affected file.
 
@@ -1149,6 +1414,8 @@ Open an issue at
 `nano16s --version`, your operating system, the exact command, and the error.
 The `performance.json` from a failed run is small and records the machine and
 settings, which usually answers the first three questions at once.
+
+---
 
 ---
 
@@ -1171,6 +1438,10 @@ settings, which usually answers the first three questions at once.
 
 Subcommands: `nano16s db build`, `nano16s db list`, `nano16s test`,
 `nano16s --version`.
+
+`nano16s batch -d <dir-of-runs> -o <dir>` processes every run under one
+directory, into `<dir>/<run-name>/`, passing all the options above through
+to each. See section 19.
 
 ### Paths
 
