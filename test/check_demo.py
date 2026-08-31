@@ -216,9 +216,20 @@ def check_performance(root: Path) -> None:
             return
 
     run = data["run"]
+    # CPU time and peak memory come from the same psutil sampling of the job's
+    # process tree, so they are absent together or not at all. macOS does not
+    # let Snakemake read a child process and reports neither, which is a
+    # platform limit and not a broken install -- failing on it told every Mac
+    # user that a run which had just produced correct tables was wrong.
+    # Missing CPU time while memory was recorded is a different matter: the
+    # sampling worked, so something else lost the value.
+    no_sampling = run.get("cpu_seconds") is None and run.get("peak_rss_mb") is None
     if run.get("barcodes") != EXPECTED_BARCODES:
         fail(f"performance report counted {run.get('barcodes')} barcodes, "
              f"expected {EXPECTED_BARCODES}")
+    elif no_sampling:
+        warn("this platform reports no CPU time or peak memory per job; "
+             "timings in the report are wall clock only")
     elif not run.get("cpu_seconds"):
         fail("performance report recorded no CPU time")
     else:
@@ -238,8 +249,9 @@ def check_performance(root: Path) -> None:
            f"{system['ram_mb'] / 1024:.1f} GB, {system['os']}")
 
     # Peak memory comes from the same records as the timings; zero here means
-    # the benchmarks were parsed but held nothing.
-    if not run.get("peak_rss_mb"):
+    # the benchmarks were parsed but held nothing. Already covered above when
+    # the platform reports nothing at all.
+    if not no_sampling and not run.get("peak_rss_mb"):
         warn("no peak memory recorded — benchmarks may be empty")
 
 
@@ -270,7 +282,8 @@ def main() -> int:
 
     if notes:
         print(f"{GREEN}Install verified.{RESET} "
-              f"{len(notes)} note(s) above are about the demo data, not the software.")
+              f"{len(notes)} note(s) above are about this demo run or this "
+              f"platform, not a fault in the software.")
     else:
         print(f"{GREEN}Install verified — everything works.{RESET}")
     print(f"\nOpen the report:  {root / 'nano16s_report.html'}")

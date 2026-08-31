@@ -14,9 +14,11 @@ Run with:
     python -m pytest test/ -v
 """
 
+import json
 import os
 import re
 import sys
+import pytest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -626,3 +628,60 @@ def test_the_timeline_does_not_stretch_across_a_gap_between_runs(tmp_path):
     assert min(widths) > 100, f"bars collapsed: {widths}"
     # And the axis tops out at the working time, not the week.
     assert "7d" not in svg and "168h" not in svg
+
+
+# --- metrics the platform does not report -----------------------------------
+#
+# Snakemake fills a benchmark's psutil columns by sampling the job's process
+# tree. macOS does not let it read a child process, so every one of those
+# columns lands as NA while the wall clock it times itself stays correct. The
+# report has to keep "nothing was measured" apart from "the measurement was
+# zero": summing an empty list gives 0, which reads as a real number and drove
+# both a `cpu time <0.1s` headline and a Machine use panel telling the reader
+# their cores had sat idle and to go retune `resources.*.cpus`.
+
+NA_ROW = ["46.75", "0:00:46", "NA", "NA", "NA", "NA", "NA", "NA", "NA", "NA"]
+FULL_ROW = ["46.75", "0:00:46", "412.19", "1200.19", "371.81", "387.89",
+            "0.00", "0.96", "280.52", "133.87"]
+
+
+def report_over_rows(tmp_path, row):
+    """Run the report over benchmarks whose every column is given verbatim."""
+    bench = tmp_path / "bench"
+    for sample in ("barcode01", "barcode02"):
+        for rule in ("porechop", "emu"):
+            write_bench(bench, rule, sample, 46.75, rows=[row])
+    html = run_report(tmp_path, benchmarks=False, bench_dir=bench)
+    data = json.loads((tmp_path / "performance.json").read_text(encoding="utf-8"))
+    return data, html
+
+
+def test_unreported_cpu_is_absent_not_zero(tmp_path):
+    """REGRESSION: all-NA benchmarks reported 0s of CPU as a measurement.
+
+    `sum(... if is not None)` over an empty list is 0, so a run that measured
+    nothing looked exactly like one that used no CPU.
+    """
+    data, _ = report_over_rows(tmp_path, NA_ROW)
+    assert data["run"]["cpu_seconds"] is None
+    assert data["run"]["peak_rss_mb"] is None
+    # Wall clock is Snakemake's own timing and has to survive untouched.
+    assert data["run"]["job_wall_seconds"] > 0
+
+
+def test_unmeasured_cores_are_not_reported_as_idle(tmp_path):
+    """REGRESSION: 0% utilisation sent the reader to the retuning advice."""
+    data, html = report_over_rows(tmp_path, NA_ROW)
+    assert data["run"]["cpu_utilisation_pct"] is None
+    assert "resources.*.cpus" not in html
+    assert "of core time unused" not in html
+    assert "Core use is not shown" in html
+
+
+def test_measured_cpu_still_reports_utilisation(tmp_path):
+    """The guard must not silence a platform that does report the metrics."""
+    data, html = report_over_rows(tmp_path, FULL_ROW)
+    assert data["run"]["cpu_seconds"] == pytest.approx(133.87 * 4)
+    assert data["run"]["peak_rss_mb"] == pytest.approx(412.19)
+    assert data["run"]["cpu_utilisation_pct"] is not None
+    assert "Core use is not shown" not in html

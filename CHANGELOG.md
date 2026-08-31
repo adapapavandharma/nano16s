@@ -27,6 +27,20 @@ report, so a result can always be traced to the database that produced it.
   waiting for the weekly macOS run.
 
 ### Fixed
+- `nano16s test` no longer reports a healthy install as broken on macOS.
+  Snakemake fills a benchmark's CPU and memory columns by sampling the job's
+  process tree, which it cannot do there, so every one of them is `NA` while
+  the wall clock it times itself stays correct. Summing those absent values
+  gave `0` rather than nothing, which the check read as a measured zero and
+  failed on. It is now a note, and only when peak memory is missing too —
+  the two come from the same sampling, so CPU time absent on its own is still
+  a real fault and still fails.
+- The performance report no longer tells macOS users their cores sat idle.
+  The same `0` became `0%` core use, which sent the reader to the "under half
+  the cores" verdict and advised retuning `resources.*.cpus` over a machine
+  that had in fact been busy. CPU time, core use and peak memory now read `-`
+  when nothing reported them, and the report says once why they are blank.
+  Wall-clock timings are measured directly and were never affected.
 - `rule emu` no longer fails on macOS for barcodes that produce no thresholded
   table — which is most of them. The rule expanded `"${THRESH[@]}"` without
   checking the count first, and bash before 4.4 treats that as an unset
