@@ -831,7 +831,14 @@ def main():
         })
 
     total_wall = sum(j["wall"] for j in jobs)
-    total_cpu = sum(j["cpu"] for j in jobs if j["cpu"] is not None)
+    # None, not 0, when nothing reported CPU. Snakemake fills the benchmark's
+    # psutil columns -- cpu_time, max_rss and the rest -- by sampling the job's
+    # process tree, and on macOS it cannot read a child process, so every one
+    # of them comes back NA while the wall clock it times itself is fine.
+    # Summing an empty list gives 0, which reads as a measured zero: a report
+    # then claims "cpu time <0.1s" for a run that took eleven minutes.
+    cpus = [j["cpu"] for j in jobs if j["cpu"] is not None]
+    total_cpu = sum(cpus) if cpus else None
     peak_rss = max((j["max_rss"] for j in jobs if j["max_rss"] is not None),
                    default=None)
 
@@ -857,7 +864,8 @@ def main():
     # Parallelism is what the run achieved; utilisation is what it achieved
     # against what the machine offered.
     parallelism = (total_wall / active) if active else None
-    utilisation = (total_cpu / (active * cores) * 100) if (active and cores) else None
+    utilisation = (total_cpu / (active * cores) * 100
+                   if (total_cpu is not None and active and cores) else None)
 
     busiest = max(rollup, key=lambda r: r["wall_total"]) if rollup else None
     flags = find_flags(rows, cfg)
@@ -1023,7 +1031,24 @@ def main():
             "</section>")
 
     # verdict on machine use
-    if parallelism and cores:
+    if parallelism and cores and utilisation is None:
+        # Every verdict below divides CPU time by cores, and this platform
+        # reported none. Saying so beats the alternative: utilisation came out
+        # as 0%, which read as a real measurement and sent the reader to the
+        # "under half the cores" branch, advising them to retune
+        # `resources.*.cpus` over a machine that had in fact been busy.
+        h.append("<section class='panel'><h2>Machine use</h2>")
+        h.append(
+            f"<p class='sub'>On average <strong>{parallelism:.1f}</strong> job"
+            f"{'s were' if parallelism >= 1.5 else ' was'} running at a time "
+            f"across {cores} cores.</p>")
+        h.append(
+            "<p class='note'>Core use is not shown. No job reported CPU time, "
+            "so there is nothing to weigh against the cores available — see "
+            "the note under the stage table. The wall-clock timings in this "
+            "report are measured directly and are unaffected.</p>")
+        h.append("</section>")
+    elif parallelism and cores:
         # Two different things, easily conflated. Concurrency counts jobs;
         # utilisation counts cores. A single wide job can run alone and still
         # keep the machine busy, so the verdict turns on utilisation and uses
@@ -1087,10 +1112,24 @@ def main():
                     if r["max_rss_mb"] else "-")
                 + td(r["sec_per_1k_reads"], ffix(r["sec_per_1k_reads"], 2))
                 + "</tr>")
-        h.append("</tbody></table></div>"
-                 "<p class='note'>CPU time exceeds wall time for stages that use "
-                 "several threads. Stage wall times sum to more than the elapsed "
-                 "time because jobs overlap.</p></section>")
+        h.append("</tbody></table></div>")
+        if total_cpu is None:
+            # The CPU and memory columns are dashes here, which otherwise looks
+            # like a broken run rather than a platform that does not report
+            # them.
+            h.append(
+                "<p class='note'>CPU time and peak memory are blank. Snakemake "
+                "fills those columns by sampling each job's process tree, which "
+                "it cannot do on this platform, so it recorded none for any "
+                "stage. Wall times are measured directly and are unaffected. "
+                "Stage wall times sum to more than the elapsed time because "
+                "jobs overlap.</p>")
+        else:
+            h.append(
+                "<p class='note'>CPU time exceeds wall time for stages that use "
+                "several threads. Stage wall times sum to more than the elapsed "
+                "time because jobs overlap.</p>")
+        h.append("</section>")
 
     # timeline
     tl, tl_legend = timeline_svg(jobs, seen_stages)
@@ -1188,7 +1227,8 @@ def main():
 
     print(f"barcodes      {len(rows)}")
     print(f"elapsed       {dur(active)}" + (f" across {len(sittings)} runs" if len(sittings) > 1 else ""))
-    print(f"cpu time      {dur(total_cpu)}")
+    if total_cpu is not None:
+        print(f"cpu time      {dur(total_cpu)}")
     if parallelism:
         print(f"parallelism   {parallelism:.1f}x of {cores} cores")
     if busiest:
