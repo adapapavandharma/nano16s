@@ -889,6 +889,12 @@ looks wrong.
 **Headline figures.** Elapsed time, total CPU time, average number of jobs
 running at once, percentage of your cores used, and peak memory.
 
+CPU time, core use and peak memory read `-` on macOS. Snakemake collects them
+by sampling each job's process tree, which macOS does not permit, so it
+records none of them there; the report says so beneath the stage table.
+Elapsed time and the per-stage wall times are measured directly and are
+correct on every platform.
+
 Elapsed counts the time the machine was **working**, which for an
 uninterrupted run is simply start to finish. If you resumed a run, only the
 stages that actually re-ran wrote new timings, so the report would otherwise
@@ -1103,7 +1109,7 @@ that is the whole job — three runs, three sets of tables and reports, one
 command. It prints what it found before starting:
 
 ```
-nano16s 1.1.0 — batch of 3 run(s)
+nano16s 1.2.0 — batch of 3 run(s)
   input     /home/you/data
   output    /home/you/results
   runs      Flongle_Demo01 Flongle_Demo02 MinION_Demo01
@@ -1459,7 +1465,8 @@ to each. See section 19.
 `config/config.yaml` sets threads and memory per stage. The thread counts
 determine how many barcodes run concurrently: a job cannot start until its full
 thread count is free, so a large value means fewer barcodes in flight. If the
-performance report shows low core utilisation, lowering these is the lever.
+performance report shows low core utilisation, lowering these is the lever. On
+macOS core use is not measured, so tune against elapsed time instead.
 
 ```yaml
 resources:

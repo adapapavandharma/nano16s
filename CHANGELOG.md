@@ -10,6 +10,8 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-02
+
 ### Added
 - `nano16s batch -d <dir-of-runs> -o <dir>` processes every run under one
   directory, into `<dir>/<run-name>/`. A run is any subdirectory holding either
@@ -25,8 +27,34 @@ report, so a result can always be traced to the database that produced it.
   expansions that are not guarded by a count first. It is a static scan, so it
   catches this class on any platform and on every pull request, rather than
   waiting for the weekly macOS run.
+- `test/test_report_qc_claim.py` pins what the results report may claim when
+  it finds nothing, so its wording cannot drift back out of step with the
+  thresholds the performance report applies to the same run.
 
 ### Fixed
+- The results report no longer reads as an all-clear on a barcode the
+  performance report flags. The two ask different questions of the same data —
+  this one catches barcodes that clearly failed (no reads, nothing left after
+  filtering, under a quarter retained), the other applies absolute floors of
+  80% retention, 1,000 reads and Q12. A barcode at 78% retention was quiet in
+  one and flagged in the other, and the CLI sends people to the quiet one
+  first. The thresholds are unchanged: which floor is right for 16S is a
+  judgement about the science, not something to alter quietly. What changed is
+  the claim — "nothing unusual" is now "nothing obviously wrong", and the panel
+  points at the stricter report.
+- The README and guide said per-job timings carry CPU time and peak memory
+  without qualification, and told a reader with low core use to retune
+  `resources.*.cpus`. Neither holds on macOS, where none of those are
+  recorded — the same advice the report itself stopped giving there.
+- `README.md` and `CONTRIBUTING.md` pointed contributors at
+  `test/test_parsers.py`, 27 of the 87 tests, so a change could pass the
+  documented check while breaking the batch CLI, the performance report or the
+  shell-portability scan.
+- The `-y` flag was described as skipping "confirmation prompts". There is one,
+  and it appears only when free disk looks short.
+- The bug report template asks for `bash --version` and `command -v bash`.
+  Snakemake picks a rule's shell with a PATH lookup, so the version it finds
+  changes how a rule behaves, and a report without it cannot be diagnosed.
 - `nano16s test` no longer reports a healthy install as broken on macOS.
   Snakemake fills a benchmark's CPU and memory columns by sampling the job's
   process tree, which it cannot do there, so every one of them is `NA` while

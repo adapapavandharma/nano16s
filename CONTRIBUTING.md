@@ -39,12 +39,14 @@ nano16s db build
 There are two levels, and they answer different questions.
 
 **Unit tests** cover the parsing functions — reading Emu's tables, reading the
-preprocessing summary, walking NCBI's taxonomy. They need only `pytest`, no
-bioinformatics tools and no database, and finish in under a second:
+preprocessing summary, walking NCBI's taxonomy — plus the performance report,
+the batch CLI, and a static check that no rule's shell body uses an array
+expansion bash 3.2 rejects. They need only `pytest`, no bioinformatics tools
+and no database, and finish in a few seconds:
 
 ```bash
 python -m pip install pytest
-python -m pytest test/test_parsers.py -v
+python -m pytest test/ -q
 ```
 
 **The demo run** exercises a real installation end to end on the bundled
@@ -110,6 +112,29 @@ install and easy to explain are more welcome than ones that add breadth.
 
 If you are planning something substantial, open an issue first so we can talk
 about it before you write the code.
+
+## Releasing
+
+The version appears in three places and they must agree, because each is read
+by something different: `bin/nano16s` reports it to the user and stamps it into
+both reports, `CITATION.cff` is what a citation resolves to, and
+`conda-recipe/meta.yaml` decides which tarball a package build downloads.
+
+```bash
+grep -n 'VERSION=' bin/nano16s | head -1     # bin/nano16s
+grep -n '^version' CITATION.cff              # CITATION.cff
+grep -n 'set version' conda-recipe/meta.yaml # conda-recipe/meta.yaml
+```
+
+Bump all three, rename the changelog's `[Unreleased]` heading to the new
+version with today's date and leave a fresh empty `[Unreleased]` above it, then
+open the pull request. Once it merges, tag the merge commit and publish the
+release from it.
+
+Tag promptly after a fix that matters to users. A tag that sits behind `main`
+is not merely stale: `nano16s db build` and the install instructions send
+people to the release, and a conda package is built from the tagged tarball, so
+everyone who does not clone `main` keeps getting the bug until the tag moves.
 
 ## Licence
 
