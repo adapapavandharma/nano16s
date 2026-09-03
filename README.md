@@ -1,5 +1,8 @@
 # nano16s
+
 [![CI](https://github.com/lz245/nano16s/actions/workflows/ci.yml/badge.svg)](https://github.com/lz245/nano16s/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Taxonomic profiling of Oxford Nanopore full-length 16S rRNA amplicon data, on
 an ordinary computer.
 
@@ -120,7 +123,7 @@ nano16s -d ./fastq_pass -c 4
 | `--min-quality` | `10` | minimum mean Phred quality |
 | `-c, --cores` | all but one | CPU cores to use |
 | `-n, --dry-run` | | list the steps and stop |
-| `-y, --yes` | | skip confirmation prompts |
+| `-y, --yes` | | answer the low-disk prompt, the only one |
 
 Full list: `nano16s --help`.
 
@@ -182,9 +185,11 @@ fall below the QC floors (retention, depth, quality, and whether the filtered
 read length matches the configured window). Open it when a run took longer than
 expected or a barcode looks wrong.
 
-Its timings come from Snakemake's per-job benchmark records, so they include
-CPU time and peak memory rather than wall clock alone. If the report shows a
-low core utilisation, the usual cause is that `resources.*.cpus` in
+Its timings come from Snakemake's per-job benchmark records. Where the
+platform allows it, those carry CPU time and peak memory as well as wall
+clock; macOS does not let Snakemake read a child process, so there the report
+shows wall clock only and says so. If the report shows a low core
+utilisation, the usual cause is that `resources.*.cpus` in
 `config.yaml` reserves more threads per job than the work needs: a job cannot
 start until its full thread count is free, so a large value runs fewer barcodes
 at once. Lowering it trades per-job speed for concurrency, which is normally
@@ -259,13 +264,14 @@ own run.
 
 ## Development
 
-Unit tests cover the parsing functions — the ones that read Emu's tables and
-NCBI's taxonomy. They need only `pytest`, no bioinformatics tools and no
-database, and run in under a second:
+Unit tests cover the parsing functions that read Emu's tables and NCBI's
+taxonomy, the performance report, the batch CLI, and a static check that no
+rule's shell body uses an array expansion bash 3.2 rejects. They need only
+`pytest`, no bioinformatics tools and no database, and run in a few seconds:
 
 ```bash
 python -m pip install pytest
-python -m pytest test/test_parsers.py -v
+python -m pytest test/ -q
 ```
 
 `nano16s test` is the other half: an end-to-end run on the bundled demo that
@@ -275,8 +281,9 @@ regressions in seconds and the demo run catches everything else.
 CI runs the unit tests on Linux and Apple Silicon on every push, and also
 installs from scratch on both to check that the documented install path
 still works. A full pipeline run — NCBI database build plus the demo —
-runs weekly; its job is to catch a bioconda dependency release breaking
-the environment before a user hits it.
+runs weekly on both Linux and macOS; its job is to catch a bioconda dependency
+release breaking the environment, or a platform difference in the workflow
+itself, before a user hits it.
 
 ## Citing
 

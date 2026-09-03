@@ -54,8 +54,12 @@ body:
         Output of:
         ```
         nano16s --version
+        bash --version | head -1
+        command -v bash
         conda list -n nano16s | grep -E "emu|minimap2|chopper|porechop|snakemake"
         ```
+        The bash line matters: Snakemake picks the shell for a rule with a PATH
+        lookup, and the version it finds changes how some rules behave.
       render: shell
     validations:
       required: true
