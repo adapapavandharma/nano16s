@@ -250,6 +250,12 @@ type `wsl` in PowerShell.
 | Ubuntu | `you@MACHINE:~$` | every command in this guide |
 | PowerShell | `PS C:\Users\you>` | the `wsl` commands above, and section 20's WSL fixes |
 
+Go by the prompt, not the window. Typing `wsl` in PowerShell starts Ubuntu
+**inside that same window**, so the title bar still says PowerShell while
+everything you type now goes to Linux. Type `exit` to come back — you will
+need to, because the WSL2 fixes in section 20 are PowerShell commands and
+cannot run at an Ubuntu prompt.
+
 **6. Install the two tools Ubuntu does not always ship with:**
 
 ```bash
@@ -327,7 +333,8 @@ accept the default location, and answer `yes` when it offers to initialise
 conda in your shell.
 
 **2. Close the terminal and open a new one.** The change only applies to
-terminals started afterwards.
+terminals started afterwards. On Windows that means the **Ubuntu** window, not
+PowerShell — conda was installed inside Ubuntu and exists nowhere else.
 
 **3. Check it worked:**
 
@@ -341,6 +348,10 @@ You should see something like `conda 24.x.x`.
 > The shell has not picked up the install. Close the terminal and open a new
 > one. If it still fails, run `source ~/.bashrc` (or `source ~/.zshrc` on
 > macOS) and try again.
+>
+> On Windows, check the prompt first. Both of those are Ubuntu commands, and
+> in PowerShell they fail too — so if the prompt reads `PS C:\Users\you>` you
+> are simply in the wrong window, and nothing is wrong with the install.
 
 ### Check you are ready
 
@@ -357,8 +368,8 @@ If one of them is missing:
 
 | Missing | Fix |
 |---|---|
-| `conda` | open a new terminal; if it persists, `source ~/.bashrc` |
-| `git` | `sudo apt install -y git` (Linux/WSL), or `xcode-select --install` (macOS) |
+| `conda` | open a new terminal — the Ubuntu one on Windows; if it persists, `source ~/.bashrc` |
+| `git` | `sudo apt install -y git` (Linux, or Ubuntu on Windows), or `xcode-select --install` (macOS) |
 
 ---
 
@@ -1307,6 +1318,12 @@ Over SSH there is no desktop to open anything on; copy the file to your own
 machine instead (section 12).
 
 ### On WSL2
+
+This group uses both windows, so check which one each command wants: a
+`powershell` block is PowerShell, a `bash` block is Ubuntu. If a command is
+not recognised, being in the wrong window is the likeliest reason before
+anything else. Type `exit` to leave Ubuntu, or open PowerShell from the Start
+menu.
 
 **`wsl --install` sits at 0%**
 
