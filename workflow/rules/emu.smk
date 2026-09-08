@@ -24,7 +24,7 @@ rule emu:
         runtime       = config["resources"]["emu"]["time_min"],
     shell:
         """
-        mkdir -p {params.outdir}
+        mkdir -p "{params.outdir}"
 
         # Pre-flight: verify database
         if [ ! -f "{params.db}/taxonomy.tsv" ] || [ ! -f "{params.db}/species_taxid.fasta" ]; then
@@ -44,7 +44,7 @@ sys.exit(1)
 PY
         then
             echo "No filtered reads for {wildcards.sample}; writing empty Emu placeholder."
-            : > {output}
+            : > "{output}"
             echo "no_filtered_reads" > {params.outdir}/{wildcards.sample}_emu_status.txt
             exit 0
         fi
@@ -63,10 +63,10 @@ PY
         rm -f {params.outdir}/*_rel-abundance*.tsv {params.outdir}/*_counts*.tsv
 
         emu abundance \
-            {input} \
-            --db {params.db} \
+            "{input}" \
+            --db "{params.db}" \
             --keep-counts \
-            --output-dir {params.outdir} \
+            --output-dir "{params.outdir}" \
             --threads {threads}
 
         # `*_rel-abundance.tsv`, matching the full table exactly, NOT
@@ -144,7 +144,7 @@ rule emu_combine:
         db          = config["emu_db"],
     shell:
         """
-        mkdir -p {params.combined_dir}
+        mkdir -p "{params.combined_dir}"
         COMBINE_INPUT="{params.combined_dir}/.emu_combine_input_{wildcards.rank}"
         rm -rf "$COMBINE_INPUT"
         mkdir -p "$COMBINE_INPUT"
@@ -183,7 +183,7 @@ rule emu_combine:
         # Run from combined_dir so Emu's output location is deterministic even
         # across Emu versions that write to the current working directory.
         (
-            cd {params.combined_dir}
+            cd "{params.combined_dir}"
             rm -f emu-combined-{wildcards.rank}.tsv emu-combined-{wildcards.rank}-counts.tsv
             emu combine-outputs "$COMBINE_INPUT" {wildcards.rank}
             emu combine-outputs "$COMBINE_INPUT" {wildcards.rank} --counts
@@ -197,8 +197,8 @@ rule emu_combine:
             mv "$COMBINE_INPUT/emu-combined-{wildcards.rank}-counts.tsv" {output.cnts}
         fi
 
-        test -s {output.rel}
-        test -s {output.cnts}
+        test -s "{output.rel}"
+        test -s "{output.cnts}"
 
         # A counts table that is only the placeholder comment means the
         # estimated-counts column was missing upstream. Fail loudly rather than
@@ -211,7 +211,7 @@ rule emu_combine:
         # build and deletes the output -- after this rule has already written
         # it -- so the run fails reporting missing counts when the real cause
         # was the clock.
-        if head -1 {output.cnts} | grep -q '^#'; then
+        if head -1 "{output.cnts}" | grep -q '^#'; then
             echo "ERROR: the counts table for {wildcards.rank} is empty." >&2
             echo "" >&2
             echo "  Two things cause this:" >&2

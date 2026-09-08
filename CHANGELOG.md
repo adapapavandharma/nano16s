@@ -10,6 +10,30 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Fixed
+- A barcode directory whose name contains a space or a bracket no longer ends
+  the run. `barcode02 (copy)` — what Finder and Explorer produce when a folder
+  is duplicated — was picked up as a sample and killed the workflow in `merge`
+  on an unquoted path, with an error that quoted the rule's own comment text
+  instead of naming the directory. Sample names are now checked against
+  letters, digits, dot, dash and underscore before anything runs, the message
+  names each offending directory, and a `wildcard_constraints` stops such a
+  name reaching a rule by another route. Paths that carry a single value are
+  quoted throughout the rules, including the database path — a macOS home
+  directory can contain a space.
+- One empty barcode directory no longer discards every other barcode's
+  results. `merge` exited 1, Snakemake halted, and because `emu_combine`
+  depends on every sample there were then no combined tables and no reports
+  at all — for a 90-barcode run, hours of completed work thrown away over one
+  empty folder. Every later stage already tolerated a barcode with no reads:
+  both NanoStat rules and Emu write an empty-result placeholder and carry on.
+  `merge` now does the same and the barcode is reported with zero reads.
+  Porechop_ABI needed the same guard, since it exits 1 on an empty input and
+  writes nothing, which would have moved the failure one rule later.
+- Porechop's working directory under `TMPDIR` is removed whether or not the
+  job succeeded. The cleanup ran after the command under `set -e`, so every
+  failed job left one behind.
+
 ## [1.2.0] — 2026-09-02
 
 ### Added
