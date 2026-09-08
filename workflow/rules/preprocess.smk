@@ -35,17 +35,23 @@ rule merge:
         shopt -s nullglob
         FASTQ_FILES=( "{input.barcode_dir}"/*.fastq.gz )
 
+        # An empty barcode directory used to exit 1. Snakemake then stopped the
+        # whole workflow, and because emu_combine depends on every sample that
+        # meant no combined tables and no report at all -- one empty directory
+        # discarding the results of the other eighty-nine, typically after
+        # hours of work. Every later stage already tolerates a barcode with no
+        # reads: both NanoStat rules and Emu write an empty-result placeholder
+        # and carry on. Merge now does the same, the barcode appears in the
+        # report with zero reads, and the run finishes.
         if [ "${{#FASTQ_FILES[@]}}" -eq 0 ]; then
-            echo "ERROR: no .fastq.gz files in {input.barcode_dir}" >&2
-            echo "  Every barcode directory must contain at least one .fastq.gz file." >&2
-            echo "  If this barcode produced no reads, remove the directory and re-run." >&2
-            exit 1
-        fi
-
-        if [ "${{#FASTQ_FILES[@]}}" -eq 1 ]; then
-            cp "${{FASTQ_FILES[0]}}" {output}
+            echo "NOTE: no .fastq.gz files in {input.barcode_dir}" >&2
+            echo "  Treating {wildcards.sample} as an empty barcode; the run continues" >&2
+            echo "  and it is reported with zero reads." >&2
+            : | gzip > "{output}"
+        elif [ "${{#FASTQ_FILES[@]}}" -eq 1 ]; then
+            cp "${{FASTQ_FILES[0]}}" "{output}"
         else
-            cat "${{FASTQ_FILES[@]}}" > {output}
+            cat "${{FASTQ_FILES[@]}}" > "{output}"
         fi
         """
 
@@ -68,7 +74,7 @@ rule nanostat_raw:
         runtime       = config["resources"]["nanostat"]["time_min"],
     shell:
         """
-        mkdir -p {params.outdir}
+        mkdir -p "{params.outdir}"
         if python3 - "{input}" <<'PY'
 import gzip
 import sys
@@ -80,18 +86,18 @@ with gzip.open(sys.argv[1], "rt", errors="replace") as handle:
 sys.exit(1)
 PY
         then
-            NanoStat --fastq {input} \
-                --name {wildcards.sample}_quality_summary.txt \
-                --outdir {params.outdir}
+            NanoStat --fastq "{input}" \
+                --name "{wildcards.sample}_quality_summary.txt" \
+                --outdir "{params.outdir}"
         else
-            cat > {output} <<'EOF'
+            cat > "{output}" <<'EOF'
 Number of reads: 0
 Total bases: 0
 Median read length: 0
 Median read quality: 0
 EOF
         fi
-        test -s {output}
+        test -s "{output}"
         """
 
 
@@ -113,14 +119,40 @@ rule porechop:
         runtime       = config["resources"]["porechop"]["time_min"],
     shell:
         """
+        # Porechop_ABI exits 1 on an empty input and writes no file, so an
+        # empty barcode would fail here instead of in merge. It infers adapters
+        # from the reads, and with none there is nothing to infer from; there is
+        # also nothing to trim, so passing the empty file through is the correct
+        # result rather than a workaround. Same emptiness test as both NanoStat
+        # rules and Emu.
+        if ! python3 - "{input}" <<'PY'
+import gzip
+import sys
+
+with gzip.open(sys.argv[1], "rt", errors="replace") as handle:
+    for i, line in enumerate(handle):
+        if i == 1 and line.strip():
+            sys.exit(0)
+sys.exit(1)
+PY
+        then
+            echo "No reads for {wildcards.sample}; nothing to trim." >&2
+            cp "{input}" "{output}"
+            exit 0
+        fi
+
         TMPDIR="${{TMPDIR:-/tmp}}"
-        mkdir -p "$TMPDIR/porechop_tmp_{wildcards.sample}"
-        cd "$TMPDIR/porechop_tmp_{wildcards.sample}"
-        porechop_abi -abi \
-            -i {input} \
-            -o {output} \
+        WORK="$TMPDIR/porechop_tmp_{wildcards.sample}"
+        # Cleared on the way out whether or not Porechop succeeded. The removal
+        # used to sit after the command under `set -e`, so every failed job left
+        # its working directory behind in TMPDIR.
+        trap 'rm -rf "$WORK"' EXIT
+        mkdir -p "$WORK"
+        cd "$WORK"
+        porechop_abi -abi \\
+            -i "{input}" \\
+            -o "{output}" \\
             --threads {threads}
-        rm -rf "$TMPDIR/porechop_tmp_{wildcards.sample}"
         """
 
 
@@ -146,13 +178,13 @@ rule chopper:
         runtime       = config["resources"]["chopper"]["time_min"],
     shell:
         """
-        gunzip -c {input} \
+        gunzip -c "{input}" \
             | chopper \
                 -l {params.min_len} \
                 --maxlength {params.max_len} \
                 -q {params.min_q} \
                 --threads {threads} \
-            | gzip > {output}
+            | gzip > "{output}"
         """
 
 
@@ -174,7 +206,7 @@ rule nanostat_filtered:
         runtime       = config["resources"]["nanostat"]["time_min"],
     shell:
         """
-        mkdir -p {params.outdir}
+        mkdir -p "{params.outdir}"
         if python3 - "{input}" <<'PY'
 import gzip
 import sys
@@ -186,18 +218,18 @@ with gzip.open(sys.argv[1], "rt", errors="replace") as handle:
 sys.exit(1)
 PY
         then
-            NanoStat --fastq {input} \
-                --name {wildcards.sample}_filtered_quality_summary.txt \
-                --outdir {params.outdir}
+            NanoStat --fastq "{input}" \
+                --name "{wildcards.sample}_filtered_quality_summary.txt" \
+                --outdir "{params.outdir}"
         else
-            cat > {output} <<'EOF'
+            cat > "{output}" <<'EOF'
 Number of reads: 0
 Total bases: 0
 Median read length: 0
 Median read quality: 0
 EOF
         fi
-        test -s {output}
+        test -s "{output}"
         """
 
 
