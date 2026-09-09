@@ -10,6 +10,19 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Changed
+- Porechop reserves two threads per barcode rather than eight, which is a
+  change in throughput, not in what the stage does. Measured on a 55,000-read
+  barcode, eight threads returns 3.46x the speed of one — so the value decided
+  how many barcodes ran at a time far more than how fast each one went, and at
+  eight it was one at a time on any machine with fewer than sixteen cores.
+  Spending the same eight cores four ways, under real contention: eight
+  single-threaded jobs finished in 1884 s, four two-threaded in 1061 s, two
+  four-threaded in 650 s, one eight-threaded in 438 s — 1.86x, 1.65x, 1.35x
+  and 1.00x the throughput. Two keeps 89% of the gain for less total memory
+  than one, since a job needs 505 MB at one thread and 731 MB at two or more.
+  A tester's 90-barcode run averaged 1.04 jobs in flight before this.
+
 ### Fixed
 - A barcode directory whose name contains a space or a bracket no longer ends
   the run. `barcode02 (copy)` — what Finder and Explorer produce when a folder

@@ -39,6 +39,12 @@ emu_ranks:
 # threads at the total you give with --cores, so these are upper bounds rather
 # than reservations: on a 4-core machine nothing here will oversubscribe.
 #
+# Read them as concurrency, not speed. A rule asking for N threads runs
+# floor(cores / N) barcodes at once, so a large value does not make the run
+# faster -- it makes fewer barcodes run at a time. None of these stages scales
+# well enough for that trade to pay off, which is why the two measured entries
+# below are set low.
+#
 # time_min is unused locally (no scheduler) but is kept so the same rule files
 # work unchanged under a cluster profile.
 resources:
@@ -51,7 +57,25 @@ resources:
     mem_mb: 2000
     time_min: 60
   porechop:
-    cpus: 8            # the slowest stage; give it what you have
+    # Measured on a 55,000-read barcode: 8 threads returns 3.46x the speed of
+    # one, so five of those eight cores do less work than the first two. What
+    # matters is barcodes finished per hour, not one barcode's speed, and on
+    # the same eight-core budget:
+    #
+    #   8 jobs x 1 thread   1884 s   1.86x the throughput of the old default
+    #   4 jobs x 2 threads  1061 s   1.65x
+    #   2 jobs x 4 threads   650 s   1.35x
+    #   1 job  x 8 threads   438 s   1.00x   <- what this used to be
+    #
+    # Fewer threads wins at every step, so the old value was the worst of the
+    # four: on any machine with under sixteen cores it ran exactly one barcode
+    # at a time. Two rather than one keeps 89% of the gain for less total
+    # memory, since a job needs 505 MB at one thread but 731 MB at two or
+    # more -- ten concurrent jobs at 7.3 GB rather than twenty at 10.1 GB.
+    # mem_mb below is not enforced (nothing passes --resources), so that
+    # headroom is the only thing standing between a small machine and the OOM
+    # killer.
+    cpus: 2
     mem_mb: 8000
     time_min: 240
   chopper:
