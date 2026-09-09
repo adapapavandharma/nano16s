@@ -11,6 +11,15 @@ report, so a result can always be traced to the database that produced it.
 ## [Unreleased]
 
 ### Fixed
+- The guide's `/etc/wsl.conf` fix can be run twice without breaking. It
+  appended, so a second attempt added a second `[network]` section and WSL then
+  reported a duplicated config key at every launch — which a tester hit, having
+  reasonably retried a step that had not appeared to work. It is now guarded by
+  a `grep`, and the guide says what the warning means and how to clear it.
+- The guide says what Windows 10 reports when mirrored networking is
+  unavailable. It gave the build number to check but not the message WSL
+  prints, which names the problem itself and sends the reader to the fix that
+  does work on that machine.
 - A barcode directory whose name contains a space or a bracket no longer ends
   the run. `barcode02 (copy)` — what Finder and Explorer produce when a folder
   is duplicated — was picked up as a sample and killed the workflow in `merge`

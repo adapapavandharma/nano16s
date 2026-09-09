@@ -1364,7 +1364,17 @@ Set-Content -Path "$env:USERPROFILE\.wslconfig" -Encoding ascii -Value '[wsl2]',
 ```
 
 Then `wsl --shutdown`, reopen Ubuntu and retry. Needs Windows build 22621 or
-higher — `wsl --version` reports the build on its last line.
+higher — `wsl --version` reports the build on its last line. Windows 10 is
+below it, and says so on the next launch:
+
+```
+wsl: Mirrored networking mode is not supported: Windows version 19045.6456
+does not have the required features.
+Falling back to NAT networking.
+```
+
+If you see that, this route is closed on your machine — go straight to the
+next fix, which does work there.
 
 > Use that command as written rather than typing the file by hand. `.wslconfig`
 > needs three separate lines, and if it ends up on one, WSL reports
@@ -1385,7 +1395,7 @@ Then in **Ubuntu**, using the addresses for the adapter you are connected
 through:
 
 ```bash
-sudo tee -a /etc/wsl.conf >/dev/null <<'END'
+grep -q generateResolvConf /etc/wsl.conf 2>/dev/null || sudo tee -a /etc/wsl.conf >/dev/null <<'END'
 
 [network]
 generateResolvConf = false
@@ -1395,6 +1405,18 @@ printf 'nameserver 10.0.0.1\nnameserver 10.0.0.2\n' | sudo tee /etc/resolv.conf
 ```
 
 Replace those two addresses with the ones PowerShell printed.
+
+> The `grep` guard matters if you try this more than once. The command appends,
+> so without it a second attempt adds a second `[network]` section and WSL then
+> reports at every launch:
+>
+> ```
+> wsl: Duplicated config key 'network.generateResolvConf' in /etc/wsl.conf:11
+> ```
+>
+> That is a warning, not a failure — WSL uses the first one and DNS still
+> works. To clear it, open the file with `sudo nano /etc/wsl.conf` and delete
+> the repeated `[network]` sections until only one remains.
 
 Run `wsl --shutdown` in PowerShell, reopen Ubuntu and retry.
 
