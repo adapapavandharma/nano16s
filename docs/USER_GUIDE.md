@@ -250,6 +250,12 @@ type `wsl` in PowerShell.
 | Ubuntu | `you@MACHINE:~$` | every command in this guide |
 | PowerShell | `PS C:\Users\you>` | the `wsl` commands above, and section 20's WSL fixes |
 
+Go by the prompt, not the window. Typing `wsl` in PowerShell starts Ubuntu
+**inside that same window**, so the title bar still says PowerShell while
+everything you type now goes to Linux. Type `exit` to come back — you will
+need to, because the WSL2 fixes in section 20 are PowerShell commands and
+cannot run at an Ubuntu prompt.
+
 **6. Install the two tools Ubuntu does not always ship with:**
 
 ```bash
@@ -327,7 +333,8 @@ accept the default location, and answer `yes` when it offers to initialise
 conda in your shell.
 
 **2. Close the terminal and open a new one.** The change only applies to
-terminals started afterwards.
+terminals started afterwards. On Windows that means the **Ubuntu** window, not
+PowerShell — conda was installed inside Ubuntu and exists nowhere else.
 
 **3. Check it worked:**
 
@@ -341,6 +348,10 @@ You should see something like `conda 24.x.x`.
 > The shell has not picked up the install. Close the terminal and open a new
 > one. If it still fails, run `source ~/.bashrc` (or `source ~/.zshrc` on
 > macOS) and try again.
+>
+> On Windows, check the prompt first. Both of those are Ubuntu commands, and
+> in PowerShell they fail too — so if the prompt reads `PS C:\Users\you>` you
+> are simply in the wrong window, and nothing is wrong with the install.
 
 ### Check you are ready
 
@@ -357,8 +368,8 @@ If one of them is missing:
 
 | Missing | Fix |
 |---|---|
-| `conda` | open a new terminal; if it persists, `source ~/.bashrc` |
-| `git` | `sudo apt install -y git` (Linux/WSL), or `xcode-select --install` (macOS) |
+| `conda` | open a new terminal — the Ubuntu one on Windows; if it persists, `source ~/.bashrc` |
+| `git` | `sudo apt install -y git` (Linux, or Ubuntu on Windows), or `xcode-select --install` (macOS) |
 
 ---
 
@@ -1308,6 +1319,12 @@ machine instead (section 12).
 
 ### On WSL2
 
+This group uses both windows, so check which one each command wants: a
+`powershell` block is PowerShell, a `bash` block is Ubuntu. If a command is
+not recognised, being in the wrong window is the likeliest reason before
+anything else. Type `exit` to leave Ubuntu, or open PowerShell from the Start
+menu.
+
 **`wsl --install` sits at 0%**
 
 Blocked from the Microsoft Store, not installing slowly. Use the two-step
@@ -1347,7 +1364,17 @@ Set-Content -Path "$env:USERPROFILE\.wslconfig" -Encoding ascii -Value '[wsl2]',
 ```
 
 Then `wsl --shutdown`, reopen Ubuntu and retry. Needs Windows build 22621 or
-higher — `wsl --version` reports the build on its last line.
+higher — `wsl --version` reports the build on its last line. Windows 10 is
+below it, and says so on the next launch:
+
+```
+wsl: Mirrored networking mode is not supported: Windows version 19045.6456
+does not have the required features.
+Falling back to NAT networking.
+```
+
+If you see that, this route is closed on your machine — go straight to the
+next fix, which does work there.
 
 > Use that command as written rather than typing the file by hand. `.wslconfig`
 > needs three separate lines, and if it ends up on one, WSL reports
@@ -1368,7 +1395,7 @@ Then in **Ubuntu**, using the addresses for the adapter you are connected
 through:
 
 ```bash
-sudo tee -a /etc/wsl.conf >/dev/null <<'END'
+grep -q generateResolvConf /etc/wsl.conf 2>/dev/null || sudo tee -a /etc/wsl.conf >/dev/null <<'END'
 
 [network]
 generateResolvConf = false
@@ -1378,6 +1405,18 @@ printf 'nameserver 10.0.0.1\nnameserver 10.0.0.2\n' | sudo tee /etc/resolv.conf
 ```
 
 Replace those two addresses with the ones PowerShell printed.
+
+> The `grep` guard matters if you try this more than once. The command appends,
+> so without it a second attempt adds a second `[network]` section and WSL then
+> reports at every launch:
+>
+> ```
+> wsl: Duplicated config key 'network.generateResolvConf' in /etc/wsl.conf:11
+> ```
+>
+> That is a warning, not a failure — WSL uses the first one and DNS still
+> works. To clear it, open the file with `sudo nano /etc/wsl.conf` and delete
+> the repeated `[network]` sections until only one remains.
 
 Run `wsl --shutdown` in PowerShell, reopen Ubuntu and retry.
 

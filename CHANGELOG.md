@@ -11,6 +11,15 @@ report, so a result can always be traced to the database that produced it.
 ## [Unreleased]
 
 ### Fixed
+- The guide's `/etc/wsl.conf` fix can be run twice without breaking. It
+  appended, so a second attempt added a second `[network]` section and WSL then
+  reported a duplicated config key at every launch — which a tester hit, having
+  reasonably retried a step that had not appeared to work. It is now guarded by
+  a `grep`, and the guide says what the warning means and how to clear it.
+- The guide says what Windows 10 reports when mirrored networking is
+  unavailable. It gave the build number to check but not the message WSL
+  prints, which names the problem itself and sends the reader to the fix that
+  does work on that machine.
 - A barcode directory whose name contains a space or a bracket no longer ends
   the run. `barcode02 (copy)` — what Finder and Explorer produce when a folder
   is duplicated — was picked up as a sample and killed the workflow in `merge`
@@ -33,6 +42,19 @@ report, so a result can always be traced to the database that produced it.
 - Porechop's working directory under `TMPDIR` is removed whether or not the
   job succeeded. The cleanup ran after the command under `set -e`, so every
   failed job left one behind.
+- The guide says which window each command belongs in. On Windows a user has
+  two open — Ubuntu and PowerShell — and the guide distinguished them once, in
+  section 3, then referred to "the terminal" for the rest of its length. The
+  Miniforge step that says to close it and open a new one now says which one,
+  and the `conda: command not found` box that follows says to check the prompt
+  first: both of its suggested fixes are Ubuntu commands and fail in PowerShell
+  too, so the recovery advice produced a second error rather than a fix.
+- The guide says how to get back to PowerShell. Section 3 offers `wsl` as a way
+  to start Ubuntu, which runs it inside the PowerShell window so the title bar
+  is unchanged, and `exit` appeared nowhere in the guide — while every WSL2 fix
+  in section 20 is a PowerShell command and cannot run at an Ubuntu prompt.
+  Section 20's WSL2 group now opens by saying which window each block wants,
+  by fence: `powershell` blocks are PowerShell, `bash` blocks are Ubuntu.
 
 ## [1.2.0] — 2026-09-02
 
