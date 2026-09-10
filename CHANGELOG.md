@@ -10,6 +10,27 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Changed
+- Porechop reserves two threads per barcode rather than eight, which is a
+  change in throughput, not in what the stage does. Measured on a 55,000-read
+  barcode, eight threads returns 3.46x the speed of one — so the value decided
+  how many barcodes ran at a time far more than how fast each one went, and at
+  eight it was one at a time on any machine with fewer than sixteen cores.
+  Spending the same eight cores four ways, under real contention: eight
+  single-threaded jobs finished in 1884 s, four two-threaded in 1061 s, two
+  four-threaded in 650 s, one eight-threaded in 438 s — 1.86x, 1.65x, 1.35x
+  and 1.00x the throughput. Two keeps 89% of the gain for less total memory
+  than one, since a job needs 505 MB at one thread and 731 MB at two or more.
+  A tester's 90-barcode run averaged 1.04 jobs in flight before this.
+- The guide's runtime table is re-measured, because the change above made
+  every figure in it too slow. All five demo datasets were run in one batch on
+  a 20-core workstation: 30 min, 55 min, 65 min, 3h 35m and 7h, against the
+  45 min, 75 min, 85 min, 4h 20m and 8h 25m previously listed. The section
+  also now says that Porechop's share of a run falls as the read count rises
+  while Emu's grows, which is why the large datasets are not simply scaled-up
+  versions of the small ones — and why the saving is 26% on a Flongle run and
+  17% on a MinION one.
+
 ### Fixed
 - The guide's `/etc/wsl.conf` fix can be run twice without breaking. It
   appended, so a second attempt added a second `[network]` section and WSL then

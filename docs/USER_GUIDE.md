@@ -674,16 +674,25 @@ measured on a 20-core workstation:
 
 | Reads in the run | Barcodes | Elapsed | Dataset (section 7) |
 |---|---|---|---|
-| ~200,000 | 24 | ~45 min | `Flongle_Demo01` |
-| ~340,000 | 24 | ~75 min | `Flongle_Demo03` |
-| ~510,000 | 16 | ~85 min | `Flongle_Demo02` |
-| ~2,300,000 | 24 | ~4h 20m | `MinION_Demo01` |
-| ~3,200,000 | 24 | ~8h 25m | `PromethION_Demo01` |
+| ~200,000 | 24 | ~30 min | `Flongle_Demo01` |
+| ~340,000 | 24 | ~55 min | `Flongle_Demo03` |
+| ~510,000 | 16 | ~65 min | `Flongle_Demo02` |
+| ~2,300,000 | 24 | ~3h 35m | `MinION_Demo01` |
+| ~3,200,000 | 24 | ~7h | `PromethION_Demo01` |
+
+Measured in one batch on a 20-core workstation, so the five are comparable
+with each other.
 
 Treat these as a rough guide — a machine with a quarter of the cores takes
 substantially longer. Two stages dominate: **Porechop**, which infers adapter
 sequences from your data rather than assuming them, and **Emu**, which does the
 classification.
+
+Their balance shifts with the size of the run, which is why the large datasets
+above are not simply scaled-up versions of the small ones. Porechop's share
+falls as the read count rises and Emu's grows, so a run of a few hundred
+thousand reads spends most of its time trimming, while one of several million
+spends most of it classifying.
 
 For a long run, start it in a way that survives losing your terminal:
 
