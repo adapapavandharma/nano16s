@@ -663,6 +663,64 @@ something else:
 nano16s -d /path/to/your_run/fastq_pass -c 4
 ```
 
+### Read depth — the setting that shortens a long run
+
+`--max-reads` classifies at most that many reads per barcode. It is off by
+default, and every read that passes the filter is classified.
+
+```bash
+nano16s -d /path/to/your_run/fastq_pass --max-reads 25000
+```
+
+It exists because classification is where a large run spends its time, and
+that cost scales with the number of reads. Trimming settings and core counts
+do not change it. On a run of several million reads, this is the only setting
+that makes a real difference.
+
+**It changes your results, so treat it as a decision about your samples rather
+than a speed knob.** Community profiles are usually stable well below full
+depth, but "usually" is not "yours". Before using it across a run, check it on
+one barcode:
+
+```bash
+# the same barcode, both ways, into two output directories
+nano16s -d /path/to/one_barcode_only -o full_depth
+nano16s -d /path/to/one_barcode_only -o reduced --max-reads 25000
+```
+
+Compare `07_emu_combined/emu-combined-species.tsv` between the two. If the taxa
+you care about hold their abundances, the reduced depth is enough for your
+samples.
+
+What that comparison looked like on one barcode of `MinION_Demo01`, at
+142,331 reads against 25,000:
+
+| | full depth | 25,000 reads |
+|---|---|---|
+| classification | 32 min | 5.6 min |
+| top five species | — | the same five, same order |
+| taxa above 1% | 15 | all 15 still found |
+| largest change among them | — | 0.31 percentage points |
+
+The most abundant organism moved from 35.01% to 34.70%. The count of taxa
+detected at all fell from 247 to 151, which is the rare tail: organisms seen a
+handful of times in 142,000 reads, where a single read is the difference
+between present and absent.
+
+Depth is what decides this, not the fraction you keep. The bundled demo data
+holds only about a thousand reads a barcode, and cutting that to 400 reordered
+the top five species in five of six barcodes — there was too little signal to
+begin with. At the depths that make a run slow there is far more room.
+
+The same reads are chosen every time for a given input, so a result can be
+reproduced. `subsample_seed` in `config/config.yaml` changes the draw, which is
+worth doing once to check a result is not an artefact of one particular sample.
+
+Reads are drawn from across the whole barcode, not from the start of it —
+nanopore writes reads in the order the pores produced them and pore quality
+drifts over a run, so the first N reads are the run's beginning rather than a
+sample of it.
+
 ---
 
 ## 10. Plan the run (time, disk, memory)

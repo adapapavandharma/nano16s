@@ -23,6 +23,25 @@ min_length: 1000
 max_length: 2000
 min_quality: 10          # Phred; ~Q10 is a reasonable floor for modern ONT
 
+# --- Read depth ---
+# 0 keeps every read that passes the filter, which is the default and what the
+# pipeline has always done. Any other value subsamples each barcode to at most
+# that many reads before classification.
+#
+# Emu's cost scales with read count and its thread setting is already at its
+# best -- measured, an 11% spread across every configuration tried -- so on a
+# large run this is the only lever that moves the classification time. A
+# 90-barcode run averaging 124,000 reads a barcode spent 61% of six days in
+# Emu; 25,000 reads a barcode would cut that roughly fivefold.
+#
+# Community profiles are usually stable well below full depth, but that is a
+# judgement about your samples, not ours, which is why this is off unless you
+# ask for it. Compare one barcode both ways before trusting it for a whole run.
+max_reads: 0
+# Fixed, so the same input always yields the same subset. Change it only to
+# check that a result is not an artefact of one particular draw.
+subsample_seed: 1
+
 # --- Emu database ---
 # Built by `nano16s db build`. The CLI fills this in from the installed
 # database unless you pass --db explicitly.

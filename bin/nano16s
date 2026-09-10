@@ -47,6 +47,7 @@ DB=""
 MIN_LENGTH=1000
 MAX_LENGTH=2000
 MIN_QUALITY=10
+MAX_READS=0
 CORES=""
 DRY_RUN=""
 ASSUME_YES=""
@@ -80,6 +81,12 @@ OPTIONS
         --min-quality INT   minimum mean Phred quality (default: 10)
     -c, --cores INT         CPU cores to use (default: all but one)
     -n, --dry-run           show what would run, then stop
+        --max-reads INT     classify at most this many reads per barcode
+                            (default: 0, meaning every read that passes the
+                            filter). Emu's time scales with read count; on a
+                            large run this is the only setting that shortens
+                            it. Compare one barcode both ways before relying
+                            on it.
     -y, --yes               don't prompt for confirmation
     -h, --help              this message
 
@@ -343,6 +350,7 @@ while [[ $# -gt 0 ]]; do
         --min-length)     need_value "$@"; MIN_LENGTH="$2";  shift 2 ;;
         --max-length)     need_value "$@"; MAX_LENGTH="$2";  shift 2 ;;
         --min-quality)    need_value "$@"; MIN_QUALITY="$2"; shift 2 ;;
+        --max-reads)      need_value "$@"; MAX_READS="$2";   shift 2 ;;
         -c|--cores)       need_value "$@"; CORES="$2";       shift 2 ;;
         -n|--dry-run)     DRY_RUN="--dry-run";               shift ;;
         -y|--yes)         ASSUME_YES=1;                      shift ;;
@@ -362,6 +370,7 @@ need_int() { [[ "$2" =~ ^[0-9]+$ ]] || die "$1 needs a whole number, got: $2"; }
 need_int --min-length  "$MIN_LENGTH"
 need_int --max-length  "$MAX_LENGTH"
 need_int --min-quality "$MIN_QUALITY"
+need_int --max-reads "$MAX_READS"
 [[ -z "$CORES" ]] || need_int -c/--cores "$CORES"
 (( MIN_LENGTH < MAX_LENGTH )) || \
     die "--min-length ($MIN_LENGTH) must be below --max-length ($MAX_LENGTH).
@@ -448,12 +457,21 @@ else
     SIZE_NOTE="size unknown"
 fi
 
+# Only when subsampling is actually on. `${MAX_READS:+...}` would not do:
+# it expands for any non-empty value, and the default is the string 0, so the
+# banner announced "at most 0 reads per barcode".
+DEPTH_NOTE=""
+if [[ "$MAX_READS" -gt 0 ]]; then
+    DEPTH_NOTE="
+  depth       at most $MAX_READS reads per barcode (subsampled)"
+fi
+
 cat <<EOF
 nano16s $VERSION
   input       $INPUT_DIR ($BARCODES barcodes, ${SIZE_NOTE})
   output      $OUTPUT_DIR
   database    $DB
-  filtering   Q>=$MIN_QUALITY, ${MIN_LENGTH}-${MAX_LENGTH} bp
+  filtering   Q>=$MIN_QUALITY, ${MIN_LENGTH}-${MAX_LENGTH} bp${DEPTH_NOTE}
   cores       $CORES
 EOF
 
@@ -483,6 +501,7 @@ CMD=(
         "min_length=$MIN_LENGTH"
         "max_length=$MAX_LENGTH"
         "min_quality=$MIN_QUALITY"
+        "max_reads=$MAX_READS"
         "nano16s_version=$VERSION"
 )
 [[ -n "$DRY_RUN" ]] && CMD+=("$DRY_RUN")

@@ -121,6 +121,7 @@ nano16s -d ./fastq_pass -c 4
 | `--min-length` | `1000` | shortest read to keep, bp |
 | `--max-length` | `2000` | longest read to keep, bp |
 | `--min-quality` | `10` | minimum mean Phred quality |
+| `--max-reads` | `0` (all) | classify at most this many reads per barcode |
 | `-c, --cores` | all but one | CPU cores to use |
 | `-n, --dry-run` | | list the steps and stop |
 | `-y, --yes` | | answer the low-disk prompt, the only one |

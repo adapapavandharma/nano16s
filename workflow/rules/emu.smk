@@ -6,9 +6,21 @@
 # Requires from config: emu_db
 # =============================================================================
 
+def classifier_input(wildcards):
+    """The reads Emu classifies: subsampled when max_reads is set, else filtered.
+
+    A function rather than a fixed path, so the extra stage joins the DAG only
+    when it is switched on. With max_reads at 0 the graph is identical to the
+    one that ran before.
+    """
+    if int(config.get("max_reads", 0) or 0) > 0:
+        return f"{OUTPUT_DIR}/04b_subsampled/{wildcards.sample}_subsampled.fastq.gz"
+    return f"{OUTPUT_DIR}/04_filtered/{wildcards.sample}_filtered.fastq.gz"
+
+
 rule emu:
     input:
-        f"{OUTPUT_DIR}/04_filtered/{{sample}}_filtered.fastq.gz"
+        classifier_input
     output:
         f"{OUTPUT_DIR}/06_emu_output/{{sample}}/{{sample}}_rel-abundance.tsv"
     params:
