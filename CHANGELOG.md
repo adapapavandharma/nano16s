@@ -22,6 +22,14 @@ report, so a result can always be traced to the database that produced it.
   and 1.00x the throughput. Two keeps 89% of the gain for less total memory
   than one, since a job needs 505 MB at one thread and 731 MB at two or more.
   A tester's 90-barcode run averaged 1.04 jobs in flight before this.
+- The guide's runtime table is re-measured, because the change above made
+  every figure in it too slow. All five demo datasets were run in one batch on
+  a 20-core workstation: 30 min, 55 min, 65 min, 3h 35m and 7h, against the
+  45 min, 75 min, 85 min, 4h 20m and 8h 25m previously listed. The section
+  also now says that Porechop's share of a run falls as the read count rises
+  while Emu's grows, which is why the large datasets are not simply scaled-up
+  versions of the small ones — and why the saving is 26% on a Flongle run and
+  17% on a MinION one.
 
 ### Fixed
 - A barcode directory whose name contains a space or a bracket no longer ends
