@@ -49,6 +49,19 @@ report, so a result can always be traced to the database that produced it.
   17% on a MinION one.
 
 ### Fixed
+- A packaged `nano16s` reached through a symlink on `PATH` finds its workflow.
+  The CLI chose between the checkout and packaged layouts by testing whether
+  the script was a symlink, assuming a symlink meant `install.sh` had made one.
+  A package copies the CLI to `$PREFIX/bin`, so linking that onto a `PATH`
+  broke the assumption: `ROOT` lost its `share/nano16s` component and the
+  Snakefile, the config and the demo data all pointed at a layout that does not
+  exist, reporting a missing file at a plausible-looking path. It now resolves
+  the symlink chain first and probes for the Snakefile in both layouts, a
+  checkout first so developing against one still wins over an installed copy.
+  Finding neither now says so instead of failing later on a derived path.
+  Dormant until the conda recipe is published, and reachable the moment it is —
+  `ln -s "$(which nano16s)" ~/bin/`, environment modules, or any package
+  manager that links rather than copies. Closes #35.
 - The guide's `/etc/wsl.conf` fix can be run twice without breaking. It
   appended, so a second attempt added a second `[network]` section and WSL then
   reported a duplicated config key at every launch — which a tester hit, having
