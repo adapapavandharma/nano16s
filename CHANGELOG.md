@@ -10,6 +10,27 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-10
+
+### Added
+- `nano16s batch -d <dir-of-runs> -o <dir>` processes every run under one
+  directory, into `<dir>/<run-name>/`. A run is any subdirectory holding either
+  `fastq_pass/` or `barcode*` directories; anything else is ignored. Every
+  option a single run takes is passed through to each, so a whole batch shares
+  one set of settings — which is what makes runs comparable. Each run writes
+  its own log beside its results, one failure does not stop the rest, and the
+  command exits non-zero if anything failed. Reports are gathered into
+  `<dir>/reports/` named by run, since they are self-contained files and that
+  directory can be zipped and sent as it is. Re-running a batch resumes:
+  finished work is skipped.
+- `test/test_shell_portability.py` checks every rule's shell body for array
+  expansions that are not guarded by a count first. It is a static scan, so it
+  catches this class on any platform and on every pull request, rather than
+  waiting for the weekly macOS run.
+- `test/test_report_qc_claim.py` pins what the results report may claim when
+  it finds nothing, so its wording cannot drift back out of step with the
+  thresholds the performance report applies to the same run.
+
 ### Changed
 - Porechop reserves two threads per barcode rather than eight, which is a
   change in throughput, not in what the stage does. Measured on a 55,000-read
@@ -30,73 +51,6 @@ report, so a result can always be traced to the database that produced it.
   while Emu's grows, which is why the large datasets are not simply scaled-up
   versions of the small ones — and why the saving is 26% on a Flongle run and
   17% on a MinION one.
-
-### Fixed
-- The guide's `/etc/wsl.conf` fix can be run twice without breaking. It
-  appended, so a second attempt added a second `[network]` section and WSL then
-  reported a duplicated config key at every launch — which a tester hit, having
-  reasonably retried a step that had not appeared to work. It is now guarded by
-  a `grep`, and the guide says what the warning means and how to clear it.
-- The guide says what Windows 10 reports when mirrored networking is
-  unavailable. It gave the build number to check but not the message WSL
-  prints, which names the problem itself and sends the reader to the fix that
-  does work on that machine.
-- A barcode directory whose name contains a space or a bracket no longer ends
-  the run. `barcode02 (copy)` — what Finder and Explorer produce when a folder
-  is duplicated — was picked up as a sample and killed the workflow in `merge`
-  on an unquoted path, with an error that quoted the rule's own comment text
-  instead of naming the directory. Sample names are now checked against
-  letters, digits, dot, dash and underscore before anything runs, the message
-  names each offending directory, and a `wildcard_constraints` stops such a
-  name reaching a rule by another route. Paths that carry a single value are
-  quoted throughout the rules, including the database path — a macOS home
-  directory can contain a space.
-- One empty barcode directory no longer discards every other barcode's
-  results. `merge` exited 1, Snakemake halted, and because `emu_combine`
-  depends on every sample there were then no combined tables and no reports
-  at all — for a 90-barcode run, hours of completed work thrown away over one
-  empty folder. Every later stage already tolerated a barcode with no reads:
-  both NanoStat rules and Emu write an empty-result placeholder and carry on.
-  `merge` now does the same and the barcode is reported with zero reads.
-  Porechop_ABI needed the same guard, since it exits 1 on an empty input and
-  writes nothing, which would have moved the failure one rule later.
-- Porechop's working directory under `TMPDIR` is removed whether or not the
-  job succeeded. The cleanup ran after the command under `set -e`, so every
-  failed job left one behind.
-- The guide says which window each command belongs in. On Windows a user has
-  two open — Ubuntu and PowerShell — and the guide distinguished them once, in
-  section 3, then referred to "the terminal" for the rest of its length. The
-  Miniforge step that says to close it and open a new one now says which one,
-  and the `conda: command not found` box that follows says to check the prompt
-  first: both of its suggested fixes are Ubuntu commands and fail in PowerShell
-  too, so the recovery advice produced a second error rather than a fix.
-- The guide says how to get back to PowerShell. Section 3 offers `wsl` as a way
-  to start Ubuntu, which runs it inside the PowerShell window so the title bar
-  is unchanged, and `exit` appeared nowhere in the guide — while every WSL2 fix
-  in section 20 is a PowerShell command and cannot run at an Ubuntu prompt.
-  Section 20's WSL2 group now opens by saying which window each block wants,
-  by fence: `powershell` blocks are PowerShell, `bash` blocks are Ubuntu.
-
-## [1.2.0] — 2026-09-02
-
-### Added
-- `nano16s batch -d <dir-of-runs> -o <dir>` processes every run under one
-  directory, into `<dir>/<run-name>/`. A run is any subdirectory holding either
-  `fastq_pass/` or `barcode*` directories; anything else is ignored. Every
-  option a single run takes is passed through to each, so a whole batch shares
-  one set of settings — which is what makes runs comparable. Each run writes
-  its own log beside its results, one failure does not stop the rest, and the
-  command exits non-zero if anything failed. Reports are gathered into
-  `<dir>/reports/` named by run, since they are self-contained files and that
-  directory can be zipped and sent as it is. Re-running a batch resumes:
-  finished work is skipped.
-- `test/test_shell_portability.py` checks every rule's shell body for array
-  expansions that are not guarded by a count first. It is a static scan, so it
-  catches this class on any platform and on every pull request, rather than
-  waiting for the weekly macOS run.
-- `test/test_report_qc_claim.py` pins what the results report may claim when
-  it finds nothing, so its wording cannot drift back out of step with the
-  thresholds the performance report applies to the same run.
 
 ### Fixed
 - The results report no longer reads as an all-clear on a barcode the
@@ -197,6 +151,50 @@ report, so a result can always be traced to the database that produced it.
   the run, opening the reports, WSL2 — rather than being one list of eighteen
   entries, and each entry is formatted the same way. Section 13 says which
   report it is describing, as section 14 already did.
+- The guide's `/etc/wsl.conf` fix can be run twice without breaking. It
+  appended, so a second attempt added a second `[network]` section and WSL then
+  reported a duplicated config key at every launch — which a tester hit, having
+  reasonably retried a step that had not appeared to work. It is now guarded by
+  a `grep`, and the guide says what the warning means and how to clear it.
+- The guide says what Windows 10 reports when mirrored networking is
+  unavailable. It gave the build number to check but not the message WSL
+  prints, which names the problem itself and sends the reader to the fix that
+  does work on that machine.
+- A barcode directory whose name contains a space or a bracket no longer ends
+  the run. `barcode02 (copy)` — what Finder and Explorer produce when a folder
+  is duplicated — was picked up as a sample and killed the workflow in `merge`
+  on an unquoted path, with an error that quoted the rule's own comment text
+  instead of naming the directory. Sample names are now checked against
+  letters, digits, dot, dash and underscore before anything runs, the message
+  names each offending directory, and a `wildcard_constraints` stops such a
+  name reaching a rule by another route. Paths that carry a single value are
+  quoted throughout the rules, including the database path — a macOS home
+  directory can contain a space.
+- One empty barcode directory no longer discards every other barcode's
+  results. `merge` exited 1, Snakemake halted, and because `emu_combine`
+  depends on every sample there were then no combined tables and no reports
+  at all — for a 90-barcode run, hours of completed work thrown away over one
+  empty folder. Every later stage already tolerated a barcode with no reads:
+  both NanoStat rules and Emu write an empty-result placeholder and carry on.
+  `merge` now does the same and the barcode is reported with zero reads.
+  Porechop_ABI needed the same guard, since it exits 1 on an empty input and
+  writes nothing, which would have moved the failure one rule later.
+- Porechop's working directory under `TMPDIR` is removed whether or not the
+  job succeeded. The cleanup ran after the command under `set -e`, so every
+  failed job left one behind.
+- The guide says which window each command belongs in. On Windows a user has
+  two open — Ubuntu and PowerShell — and the guide distinguished them once, in
+  section 3, then referred to "the terminal" for the rest of its length. The
+  Miniforge step that says to close it and open a new one now says which one,
+  and the `conda: command not found` box that follows says to check the prompt
+  first: both of its suggested fixes are Ubuntu commands and fail in PowerShell
+  too, so the recovery advice produced a second error rather than a fix.
+- The guide says how to get back to PowerShell. Section 3 offers `wsl` as a way
+  to start Ubuntu, which runs it inside the PowerShell window so the title bar
+  is unchanged, and `exit` appeared nowhere in the guide — while every WSL2 fix
+  in section 20 is a PowerShell command and cannot run at an Ubuntu prompt.
+  Section 20's WSL2 group now opens by saying which window each block wants,
+  by fence: `powershell` blocks are PowerShell, `bash` blocks are Ubuntu.
 
 ## [1.1.0] — 2026-08-20
 
