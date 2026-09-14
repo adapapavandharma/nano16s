@@ -189,6 +189,42 @@ rule chopper:
 
 
 # ---------------------------------------------------------------------------
+# Rule 04b: optional subsample before classification
+# ---------------------------------------------------------------------------
+# Runs only when max_reads is set; with it at 0 this rule is never part of the
+# DAG and the workflow is the one that ran before.
+#
+# Emu's cost scales with read count, and its thread setting is already as good
+# as it gets -- measured, an 11% spread across every configuration -- so on a
+# large run this is the only thing that moves the classification time.
+#
+# Writes a separate directory rather than filtering 04_filtered in place. The
+# retention figures in both reports mean "reads that passed the filter";
+# subsampling in place would quietly redefine them as "reads we chose to keep"
+# with nothing in the report to say so.
+rule subsample:
+    input:
+        f"{OUTPUT_DIR}/04_filtered/{{sample}}_filtered.fastq.gz"
+    output:
+        f"{OUTPUT_DIR}/04b_subsampled/{{sample}}_subsampled.fastq.gz"
+    params:
+        max_reads = config.get("max_reads", 0),
+        seed      = config.get("subsample_seed", 1),
+        script    = os.path.join(workflow.basedir, "scripts", "subsample_reads.py"),
+    benchmark:
+        f"{OUTPUT_DIR}/benchmarks/subsample/{{sample}}.tsv"
+    resources:
+        cpus_per_task = config["resources"]["merge"]["cpus"],
+        mem_mb        = config["resources"]["merge"]["mem_mb"],
+        runtime       = config["resources"]["merge"]["time_min"],
+    shell:
+        """
+        python3 "{params.script}" "{input}" "{output}" \
+            {params.max_reads} {params.seed}
+        """
+
+
+# ---------------------------------------------------------------------------
 # Rule 05: NanoStat on filtered reads
 # ---------------------------------------------------------------------------
 rule nanostat_filtered:

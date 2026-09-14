@@ -10,6 +10,23 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Added
+- `--max-reads N` classifies at most N reads per barcode, off by default.
+  Classification is where a large run spends its time and its cost scales with
+  read count, while its thread setting is already as good as it gets — an 11%
+  spread across every configuration measured — so on a run of several million
+  reads this is the only setting that shortens it. One barcode of
+  `MinION_Demo01`, 142,331 reads against 25,000: classification fell from 32
+  minutes to 5.6, the top five species were the same five in the same order,
+  all fifteen taxa above 1% were still found, and the largest abundance change
+  among them was 0.31 percentage points. Reads are drawn from across the whole
+  barcode rather than its start, since nanopore writes reads in the order the
+  pores produced them and pore quality drifts over a run; the draw is seeded so
+  the same input always gives the same subset. Subsampled reads go to
+  `04b_subsampled/` rather than replacing `04_filtered/`, so the retention
+  figures in both reports keep meaning "reads that passed the filter". With
+  the option unset the workflow graph is unchanged.
+
 ### Changed
 - Porechop reserves two threads per barcode rather than eight, which is a
   change in throughput, not in what the stage does. Measured on a 55,000-read
