@@ -604,6 +604,35 @@ Section 16 shows how to apply it when loading the tables. Doing this at the
 start rather than at analysis time saves real confusion — barcode numbering and
 sample numbering rarely line up.
 
+**Barcode numbers repeat between runs.** A barcode number identifies a sample
+only within one sequencing run. Kits reuse the same barcodes, so `barcode07`
+from one run and `barcode07` from the next are different samples — in one
+dataset, eight separate positive controls were all `barcode07`, each on its own
+flow cell. nano16s never reads the barcode sequence; MinKNOW has already sorted
+the reads by then, and a sample is simply whatever its directory is called. So:
+
+- Keep each run's `fastq_pass/` separate, or use `nano16s batch`, which gives
+  every run its own output directory. Never copy two runs' barcode directories
+  into one folder: the second `barcode07` lands on top of the first.
+- To analyse samples from several runs together, give each directory a unique
+  name first. Any name that starts with `barcode` and uses only letters,
+  digits, dot, dash and underscore works, and the name is carried into every
+  table and report:
+
+```bash
+mkdir combined
+cp -r run_A/fastq_pass/barcode07 combined/barcodeCatfish_pool5
+cp -r run_B/fastq_pass/barcode07 combined/barcodeCatfish_pool6
+```
+
+- If you are unsure where a file came from, its reads say. Every MinKNOW read
+  header records the barcode, flow cell, sample ID and start time:
+
+```bash
+zcat barcode07/*.fastq.gz | head -1 | tr ' ' '\n' \
+    | grep -E '^(barcode|flow_cell_id|sample_id|start_time)='
+```
+
 ---
 
 ## 9. Choose settings for your amplicon

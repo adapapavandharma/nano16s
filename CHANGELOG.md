@@ -11,6 +11,13 @@ report, so a result can always be traced to the database that produced it.
 ## [Unreleased]
 
 ### Fixed
+- The guide says that barcode numbers repeat between runs. A barcode number
+  names a sample only within one run, and nano16s identifies a sample by its
+  directory name alone, so two runs' `barcode07` directories copied into one
+  folder silently become one sample. Section 8 now says to keep runs apart or
+  rename directories uniquely first — any `barcode…` name of letters, digits,
+  dot, dash and underscore works — and how to read a file's barcode, flow cell
+  and sample ID back out of its read headers when its origin is in doubt.
 - The disk-space check measures input reached through symlinks. It used
   `du -sm`, which counts a symlink as the few bytes of the link itself, so
   input whose FASTQ files or barcode directories are symlinks — a common way to
