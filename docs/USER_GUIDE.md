@@ -1152,6 +1152,20 @@ than routine. Report genus-level abundances; if a species-level claim matters,
 state that it sits inside a closely related complex and check it holds across
 repeat runs.
 
+**Some species are named wrongly, and consistently.** On the ZymoBIOMICS mock
+community, whose species are known, nano16s with its default database got
+every genus right but named four species as a close relative: *Escherichia
+coli* as *E. fergusonii*, *Staphylococcus aureus* as *S. roterodami*, *Listeria
+monocytogenes* as *L. cossartiae*, and the mock's *Bacillus spizizenii*
+(sold as *B. subtilis*) as *B. rugosus*. Unlike the shifts above, these calls
+were the same in every sample and every run, so repeating a run will not reveal
+them. Each pair has near-identical 16S genes, and the default database holds
+one to ten sequences per species, so a strain can sit closer to a relative's
+single reference than to its own. The misnaming follows the database: the same
+reads named against a database with hundreds of sequences per species came out
+right. Read a species name inside such a group as "a member of this group", not
+as an identification.
+
 **Relative abundance is compositional.** Proportions sum to 1, so one taxon
 rising means others fall by arithmetic, not biology. Use methods designed for
 compositional data when testing for differences.
