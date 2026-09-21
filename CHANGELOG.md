@@ -10,7 +10,7 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
-## [1.2.0] — 2026-09-10
+## [1.2.0] — 2026-09-21
 
 ### Added
 - `--max-reads N` classifies at most N reads per barcode, off by default.
