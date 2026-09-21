@@ -10,6 +10,32 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Fixed
+- The guide says which species names to distrust. On the ZymoBIOMICS mock
+  community nano16s got every genus right but consistently named four species
+  as a close relative (*E. coli* as *E. fergusonii*, *S. aureus* as
+  *S. roterodami*, *L. monocytogenes* as *L. cossartiae*, *B. spizizenii* as
+  *B. rugosus*). Section 17 warned only about run-to-run shifts, which repeat
+  runs expose; these do not move between runs, so nothing in a user's own
+  results would reveal them. The section now names them and their cause —
+  one to ten reference sequences per species in the default database.
+- The guide says that barcode numbers repeat between runs. A barcode number
+  names a sample only within one run, and nano16s identifies a sample by its
+  directory name alone, so two runs' `barcode07` directories copied into one
+  folder silently become one sample. Section 8 now says to keep runs apart or
+  rename directories uniquely first — any `barcode…` name of letters, digits,
+  dot, dash and underscore works — and how to read a file's barcode, flow cell
+  and sample ID back out of its read headers when its origin is in doubt.
+- The disk-space check measures input reached through symlinks. It used
+  `du -sm`, which counts a symlink as the few bytes of the link itself, so
+  input whose FASTQ files or barcode directories are symlinks — a common way to
+  assemble one input from several runs without copying them — measured 0 or
+  1 MB, and a run that would fill the disk passed the check. A 3 MB file behind
+  a symlink was reported as 0 MB; it is now reported as 3. The size in the
+  startup banner is right for the same reason. `test/test_preflight_size.py`
+  runs the real CLI up to the banner for plain, symlinked-file and
+  symlinked-directory input.
+
 ## [1.2.0] — 2026-09-21
 
 ### Added

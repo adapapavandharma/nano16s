@@ -447,7 +447,12 @@ OUTPUT_DIR="$(cd "$OUTPUT_DIR" && pwd)"
 # output at all whenever a barcode directory was not readable, which on a
 # shared machine is an ordinary Monday. The disk estimate is a convenience; it
 # must never be able to stop a run.
-INPUT_MB="$(du -sm "$INPUT_DIR" 2>/dev/null | cut -f1)" || INPUT_MB=""
+#
+# `-L`: without it du counts a symlink as the few bytes of the link itself, so
+# input whose FASTQ files or barcode directories are symlinks -- a common way to
+# assemble one input from several runs without copying them -- measured about
+# 1 MB, and a run that would fill the disk passed the check. BSD du has -L too.
+INPUT_MB="$(du -smL "$INPUT_DIR" 2>/dev/null | cut -f1)" || INPUT_MB=""
 FREE_MB="$(df -m "$OUTPUT_DIR" 2>/dev/null | tail -1 | awk '{print $4}')" || FREE_MB=""
 [[ "$INPUT_MB" =~ ^[0-9]+$ ]] || INPUT_MB=""
 [[ "$FREE_MB"  =~ ^[0-9]+$ ]] || FREE_MB=""
