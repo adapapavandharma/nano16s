@@ -10,6 +10,17 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Fixed
+- The disk-space check measures input reached through symlinks. It used
+  `du -sm`, which counts a symlink as the few bytes of the link itself, so
+  input whose FASTQ files or barcode directories are symlinks — a common way to
+  assemble one input from several runs without copying them — measured 0 or
+  1 MB, and a run that would fill the disk passed the check. A 3 MB file behind
+  a symlink was reported as 0 MB; it is now reported as 3. The size in the
+  startup banner is right for the same reason. `test/test_preflight_size.py`
+  runs the real CLI up to the banner for plain, symlinked-file and
+  symlinked-directory input.
+
 ## [1.2.0] — 2026-09-21
 
 ### Added
