@@ -8,31 +8,35 @@
 set -euo pipefail
 
 # workflow/, config/, tools/ and test/ sit one level above this script in a
-# source checkout, and under $PREFIX/share/nano16s in a packaged install. Look
-# for the packaged layout first, using the invocation path before symlinks are
-# resolved: a package copies the CLI to $PREFIX/bin, so $PREFIX is one level up.
-INVOKED_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# source checkout, and under $PREFIX/share/nano16s in a packaged install.
+# Find the real file first, then look for the workflow beside it. The previous
+# version decided the layout from whether this script was a symlink, on the
+# assumption that a symlink meant install.sh had made one — true for a
+# checkout, but not for a packaged CLI someone has linked onto their PATH.
+# That case took the checkout branch and ROOT lost its share/nano16s
+# component, so SNAKEFILE, CONFIG and the demo path all pointed at a layout
+# that does not exist. Probing for the Snakefile cannot be fooled that way.
+#
+# readlink -f would resolve the chain in one line but is not available on
+# macOS.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+    LINK_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ "$SOURCE" != /* ]] && SOURCE="$LINK_DIR/$SOURCE"
+done
+BIN_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
 
-# A symlink here was put there by install.sh, so a checkout is being developed
-# against and it wins — otherwise someone with both an installed copy and a
-# checkout in the same environment would silently run the installed workflow.
-if [ ! -L "${BASH_SOURCE[0]}" ] && [ -d "$INVOKED_DIR/../share/nano16s/workflow" ]; then
-    BIN_DIR="$INVOKED_DIR"
-    ROOT="$(cd -P "$INVOKED_DIR/../share/nano16s" && pwd)"
+# A checkout is probed first, so developing against one still wins over an
+# installed copy in the same environment — which the old comment promised but
+# only achieved by inference from a symlink existing.
+if [ -f "$BIN_DIR/../workflow/Snakefile" ]; then
+    ROOT="$(cd -P "$BIN_DIR/.." && pwd)"
+elif [ -f "$BIN_DIR/../share/nano16s/workflow/Snakefile" ]; then
+    ROOT="$(cd -P "$BIN_DIR/../share/nano16s" && pwd)"
 else
-    # Source checkout. install.sh symlinks this script into the conda
-    # environment's bin/, so ${BASH_SOURCE[0]} is usually the symlink, not the
-    # file. Resolve the chain before deriving ROOT — otherwise ROOT becomes the
-    # environment prefix and every path built from it points at nothing.
-    # readlink -f would do this in one line but is not available on macOS.
-    SOURCE="${BASH_SOURCE[0]}"
-    while [ -L "$SOURCE" ]; do
-        LINK_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-        SOURCE="$(readlink "$SOURCE")"
-        [[ "$SOURCE" != /* ]] && SOURCE="$LINK_DIR/$SOURCE"
-    done
-    BIN_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-    ROOT="$(dirname "$BIN_DIR")"
+    printf 'ERROR: cannot find the workflow (no Snakefile near %s)\n' "$BIN_DIR" >&2
+    exit 1
 fi
 SNAKEFILE="$ROOT/workflow/Snakefile"
 CONFIG="$ROOT/config/config.yaml"
