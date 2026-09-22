@@ -18,6 +18,10 @@ report, so a result can always be traced to the database that produced it.
   cite the software itself.
 
 ### Fixed
+- CI retries the Miniforge download. It is fetched from GitHub's release
+  servers, which returned a 504 once and failed the macOS install job on a
+  commit whose other six checks passed. Five retries with a 20-second connect
+  timeout, in both workflows that install it.
 - The guide says which species names to distrust. On the ZymoBIOMICS mock
   community nano16s got every genus right but consistently named four species
   as a close relative (*E. coli* as *E. fergusonii*, *S. aureus* as
