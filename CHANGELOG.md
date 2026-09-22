@@ -10,6 +10,13 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Added
+- The Zenodo DOI, in the README badge row, the Citing section, `CITATION.cff`
+  and the guide. `10.5281/zenodo.22031297` resolves to the latest
+  release; each release also gets its own. Releases were being archived
+  already, but nothing in the repository said so, so a reader had no way to
+  cite the software itself.
+
 ### Fixed
 - The guide says which species names to distrust. On the ZymoBIOMICS mock
   community nano16s got every genus right but consistently named four species
