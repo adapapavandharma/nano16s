@@ -10,6 +10,7 @@ reach gigabytes for a single deep barcode.
 
 import csv
 import gzip
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -133,7 +134,13 @@ class TestConversion:
         assert "--per-read" in (r.stdout + r.stderr)
 
 
-@pytest.mark.skipif(not CLI.exists() or not DEMO.exists(), reason="CLI or demo absent")
+# These drive the real CLI, which builds a DAG and so needs Snakemake. The
+# unit job installs only what the tests themselves import, so they are skipped
+# there and run wherever the pipeline is actually installed -- locally, and in
+# the install job.
+@pytest.mark.skipif(not CLI.exists() or not DEMO.exists()
+                    or shutil.which("snakemake") is None,
+                    reason="needs the CLI, the demo data and Snakemake")
 class TestTheFlag:
     """Off unless asked for -- including when asked for as the string "false"."""
 
