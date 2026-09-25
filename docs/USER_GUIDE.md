@@ -932,6 +932,28 @@ one barcode, or sort by reads, or keep everything above 1%. The reads column
 sums exactly to that barcode's `reads_classified`, so the two tables agree to
 the read.
 
+**Already have results from an earlier version?** You do not need to re-run the
+analysis. Point nano16s at the same output directory with the same command and
+it writes the two new tables and refreshes the report — the reads are not
+re-trimmed and not re-classified:
+
+```bash
+nano16s -d /path/to/fastq_pass -o my_results -y
+```
+
+To relabel the combined tables as well, so the unclassified row is named,
+delete them first and run the same command. They are rebuilt from the
+per-barcode results already on disk:
+
+```bash
+rm my_results/07_emu_combined/emu-combined-*.tsv
+nano16s -d /path/to/fastq_pass -o my_results -y
+```
+
+On a six-barcode run that took six seconds, and the counts came out identical
+to the original run. For `nano16s batch`, use the same command with `batch` and
+the directory of runs.
+
 ### Opening your results
 
 Both reports are single self-contained HTML files — no internet needed to view
