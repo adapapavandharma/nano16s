@@ -257,6 +257,11 @@ rule emu_combine:
 # One row per barcode: raw, removed by the filter, given to the classifier,
 # classified, unclassified, and the number of species and genera found. The
 # `check` column is the arithmetic a reader would otherwise have to do.
+#
+# per_barcode_taxa.tsv answers the other half: which species, not just how
+# many. One row per barcode and species, with reads and share. The combined
+# tables hold the same numbers as a grid, which suits a heatmap; this suits a
+# person filtering one barcode, or a spreadsheet.
 # ---------------------------------------------------------------------------
 rule read_accounting:
     input:
@@ -266,11 +271,13 @@ rule read_accounting:
         ),
         summary = f"{OUTPUT_DIR}/preprocessing_summary.csv",
     output:
-        f"{OUTPUT_DIR}/07_emu_combined/read_accounting.tsv"
+        accounting = f"{OUTPUT_DIR}/07_emu_combined/read_accounting.tsv",
+        taxa       = f"{OUTPUT_DIR}/07_emu_combined/per_barcode_taxa.tsv",
     params:
         emu_dir = f"{OUTPUT_DIR}/06_emu_output",
         script  = os.path.join(workflow.basedir, "scripts", "read_accounting.py"),
     shell:
         """
-        python3 "{params.script}" "{params.emu_dir}" "{input.summary}" "{output}"
+        python3 "{params.script}" "{params.emu_dir}" "{input.summary}" \
+            "{output.accounting}" "{output.taxa}"
         """
