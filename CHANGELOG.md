@@ -11,6 +11,19 @@ report, so a result can always be traced to the database that produced it.
 ## [Unreleased]
 
 ### Added
+- `--per-read` writes one line per sequencing read to `08_per_read/`: what
+  that read was called, how much of its probability sits on that call, how many
+  taxa it matched, and the full lineage. The abundance tables cannot say which
+  read supported which call, so a read could not be traced back, pulled out for
+  a second opinion, or counted by hand. Emu does not label reads — it spreads
+  each read over the references it matched — so the confidence is reported
+  beside the name and reads below 0.9 are marked ambiguous rather than
+  presented as decided. Every read the classifier saw has a line, including
+  those that matched nothing, so the count reconciles with
+  `read_accounting.tsv`. Off by default: it costs no measurable time, but Emu's
+  read-by-taxon distribution is reads x taxa and reaches gigabytes for a deep
+  barcode (nano16s converts it and deletes it), and a finished run has to
+  classify again to produce it.
 - `07_emu_combined/read_accounting.tsv`, and the same table in the report as
   "Every read accounted for": per barcode, the raw reads, what the filter
   removed, what `--max-reads` left out, what the classifier was given, and how

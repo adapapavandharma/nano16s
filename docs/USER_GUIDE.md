@@ -882,6 +882,10 @@ my_results/
     ├── emu-combined-phylum-counts.tsv
     ├── read_accounting.tsv              where every read went, per barcode
     └── per_barcode_taxa.tsv             which species, per barcode
+
+with --per-read, one more directory:
+└── 08_per_read/                  one line per sequencing read
+    └── <barcode>_per_read.tsv.gz
 ```
 
 **Relative abundance vs counts.** Abundance tables give each taxon's proportion
@@ -953,6 +957,49 @@ nano16s -d /path/to/fastq_pass -o my_results -y
 On a six-barcode run that took six seconds, and the counts came out identical
 to the original run. For `nano16s batch`, use the same command with `batch` and
 the directory of runs.
+
+### One line per read: `--per-read`
+
+The tables above summarise a barcode. They cannot say *which* read supported a
+call, so a read cannot be traced back, pulled out for a second opinion, or
+counted by hand. Run with `--per-read` and each barcode also gets
+`08_per_read/<barcode>_per_read.tsv.gz`:
+
+```
+read_id                               barcode    status  taxid   species            confidence  candidates  lineage
+a2f7a15c-8ee9-4800-9dbc-5268366ec261  barcode01  C       654     Aeromonas veronii  1.0000      1           Bacteria|Pseudomonadota|...|Aeromonas veronii
+b7098d5e-5f8a-40cc-a1ac-60a9ec97d0d3  barcode01  C       324617  Aeromonas tecta    0.9972      4           Bacteria|Pseudomonadota|...|Aeromonas tecta
+```
+
+| column | meaning |
+|---|---|
+| `status` | `C` confident, `A` ambiguous, `U` matched nothing |
+| `confidence` | how much of that read's probability sits on the reported taxon |
+| `candidates` | how many taxa the read matched at all |
+| `lineage` | full lineage, domain first, pipe-separated |
+
+**Why a confidence, and not just a name.** Emu does not label reads. It spreads
+each read across the references it matched and estimates abundances from the
+whole distribution. This file reports the taxon holding most of a read's
+probability, with that probability beside it — so `1.0000` is one clear match,
+while `0.55` means the read fits two references nearly equally and the species
+name is close to a coin toss. Reads below 0.9 are marked `A` rather than
+presented as decided. Every read the classifier saw has a line, including ones
+that matched nothing, so the line count equals `reads_to_classifier` in
+`read_accounting.tsv`.
+
+Pull out one organism's reads:
+
+```bash
+zcat 08_per_read/barcode01_per_read.tsv.gz | awk -F'\t' '$5 == "Aeromonas veronii"'
+```
+
+**Cost.** No measurable extra time: Emu does the same work and writes one more
+file. That file is reads × taxa and can reach gigabytes for one deep barcode,
+so nano16s converts it to the compact table above and deletes it. The result is
+roughly 30 bytes per read. It is off by default for one reason: Emu has to be
+asked for the distribution while it classifies, so a run that already finished
+without `--per-read` has to classify again to produce it.
 
 ### Opening your results
 
@@ -1654,6 +1701,7 @@ settings, which usually answers the first three questions at once.
 | `--min-quality` | `10` | minimum mean Phred quality |
 | `-c, --cores` | all but one | CPU cores to use |
 | `-n, --dry-run` | | list the steps and stop |
+| `--per-read` | off | also write one line per read: what it was called, how sure, full lineage |
 | `-y, --yes` | | skip confirmation prompts |
 | `-h, --help` | | full help |
 
