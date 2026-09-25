@@ -26,6 +26,7 @@ def all_targets():
         f"{OUTPUT_DIR}/performance_summary.csv",
         f"{OUTPUT_DIR}/performance.json",
         f"{OUTPUT_DIR}/07_emu_combined/read_accounting.tsv",
+        f"{OUTPUT_DIR}/07_emu_combined/per_barcode_taxa.tsv",
     ]
     for rank in EMU_RANKS:
         targets.append(f"{OUTPUT_DIR}/07_emu_combined/emu-combined-{rank}.tsv")

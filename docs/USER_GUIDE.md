@@ -880,7 +880,8 @@ my_results/
     ├── emu-combined-genus-counts.tsv
     ├── emu-combined-phylum.tsv
     ├── emu-combined-phylum-counts.tsv
-    └── read_accounting.tsv              where every read went, per barcode
+    ├── read_accounting.tsv              where every read went, per barcode
+    └── per_barcode_taxa.tsv             which species, per barcode
 ```
 
 **Relative abundance vs counts.** Abundance tables give each taxon's proportion
@@ -913,6 +914,23 @@ subsampled_out + reads_classified + reads_unclassified`. The report shows the
 same table under **Every read accounted for**. If a species-level total ever
 looks smaller than you expect, this is the first place to look: the reads are
 either filtered out, not classified, or on a taxon you filtered away.
+
+**`per_barcode_taxa.tsv`** answers the other half: not how many species a
+barcode found, but which. One row per barcode and species, with the reads on it
+and its share of that barcode's classified reads:
+
+```
+barcode     species              genus        reads   pct_of_classified
+barcode01   Aeromonas veronii    Aeromonas    607     61.6434%
+barcode01   Hafnia paralvei      Hafnia       243     24.6958%
+barcode01   Ewingella americana  Ewingella    28      2.8729%
+```
+
+The combined tables hold the same numbers as a grid of taxa against barcodes,
+which is the shape a heatmap wants. This is the shape a person wants: filter to
+one barcode, or sort by reads, or keep everything above 1%. The reads column
+sums exactly to that barcode's `reads_classified`, so the two tables agree to
+the read.
 
 ### Opening your results
 

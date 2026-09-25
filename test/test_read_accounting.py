@@ -56,18 +56,23 @@ def summary_csv(path, barcodes):
             w.writerow([bc, float(raw), 0, 0, 0, float(filt), 0, 0, 0])
 
 
-def run_accounting(tmp_path, barcodes, tables):
+def run_accounting(tmp_path, barcodes, tables, want_taxa=False):
     emu_dir = tmp_path / "06_emu_output"
     for bc, rows in tables.items():
         emu_table(emu_dir / bc / f"{bc}_rel-abundance.tsv", rows)
     summary = tmp_path / "preprocessing_summary.csv"
     summary_csv(summary, barcodes)
     out = tmp_path / "read_accounting.tsv"
+    taxa = tmp_path / "per_barcode_taxa.tsv"
     subprocess.run([sys.executable, str(SCRIPTS / "read_accounting.py"),
-                    str(emu_dir), str(summary), str(out)], check=True,
+                    str(emu_dir), str(summary), str(out), str(taxa)], check=True,
                    capture_output=True, text=True)
     with out.open() as fh:
-        return {r["barcode"]: r for r in csv.DictReader(fh, delimiter="\t")}
+        acct = {r["barcode"]: r for r in csv.DictReader(fh, delimiter="\t")}
+    if not want_taxa:
+        return acct
+    with taxa.open() as fh:
+        return acct, list(csv.DictReader(fh, delimiter="\t"))
 
 
 class TestCounting:
@@ -209,3 +214,59 @@ class TestLabelling:
                         rank, str(p)], check=True, capture_output=True)
         with p.open() as fh:
             assert [r[rank] for r in csv.DictReader(fh, delimiter="\t")][-1] == "Unclassified"
+
+
+class TestPerBarcodeTaxa:
+    """Which species, not just how many -- and the counts still add up."""
+
+    def test_lists_each_species_with_its_reads(self, tmp_path):
+        acct, taxa = run_accounting(
+            tmp_path,
+            {"barcode01": (100, 100)},
+            {"barcode01": [("1", "Escherichia coli", "Escherichia", 60),
+                           ("2", "Bacillus subtilis", "Bacillus", 30),
+                           ("unmapped", "", "", 10)]},
+            want_taxa=True,
+        )
+        rows = [r for r in taxa if r["barcode"] == "barcode01"]
+        assert [r["species"] for r in rows] == ["Escherichia coli", "Bacillus subtilis"]
+        assert [int(r["reads"]) for r in rows] == [60, 30]
+        assert [r["genus"] for r in rows] == ["Escherichia", "Bacillus"]
+
+    def test_unclassified_reads_are_not_listed_as_a_species(self, tmp_path):
+        _, taxa = run_accounting(
+            tmp_path,
+            {"barcode01": (100, 100)},
+            {"barcode01": [("1", "Escherichia coli", "Escherichia", 90),
+                           ("mapped_unclassified", "", "", 10)]},
+            want_taxa=True,
+        )
+        assert [r["species"] for r in taxa] == ["Escherichia coli"]
+
+    def test_reads_sum_exactly_to_the_classified_total(self, tmp_path):
+        """Emu's counts are fractional; rounding each row on its own would
+        leave the column a read or two off the total this table exists to
+        reconcile."""
+        acct, taxa = run_accounting(
+            tmp_path,
+            {"barcode01": (100, 100)},
+            {"barcode01": [("1", "Escherichia coli", "Escherichia", 33.3),
+                           ("2", "Bacillus subtilis", "Bacillus", 33.3),
+                           ("3", "Listeria monocytogenes", "Listeria", 33.4)]},
+            want_taxa=True,
+        )
+        assert sum(int(r["reads"]) for r in taxa) == int(acct["barcode01"]["reads_classified"])
+
+    def test_species_count_matches_the_accounting_table(self, tmp_path):
+        acct, taxa = run_accounting(
+            tmp_path,
+            {"barcode01": (100, 100), "barcode02": (50, 50)},
+            {"barcode01": [("1", "Escherichia coli", "Escherichia", 50),
+                           ("2", "Bacillus subtilis", "Bacillus", 50)],
+             "barcode02": [("1", "Escherichia coli", "Escherichia", 50)]},
+            want_taxa=True,
+        )
+        for bc in ("barcode01", "barcode02"):
+            listed = [r for r in taxa if r["barcode"] == bc]
+            assert len(listed) == int(acct[bc]["species_found"])
+

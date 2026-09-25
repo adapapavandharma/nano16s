@@ -19,6 +19,13 @@ report, so a result can always be traced to the database that produced it.
   whether the numbers added up, so anyone reconciling a species total against
   their read count had to work it out themselves. A `check` column states it
   outright.
+- `07_emu_combined/per_barcode_taxa.tsv`: one row per barcode and species,
+  with the reads on it and its share of that barcode. The combined tables hold
+  the same numbers as a grid of taxa against barcodes, which suits a heatmap;
+  this suits filtering to one barcode or sorting by abundance. Emu's counts are
+  estimates and therefore fractional, so they are rounded by largest remainder:
+  the column sums exactly to that barcode's classified reads rather than
+  landing a read or two away from it.
 - Emu's unnamed row is labelled `Unclassified` in every combined table. Emu
   writes the reads it could not place into a row with no taxonomy at all, which
   reads as a blank line: summing a column silently included it, and filtering
