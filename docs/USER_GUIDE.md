@@ -879,7 +879,8 @@ my_results/
     ├── emu-combined-genus.tsv
     ├── emu-combined-genus-counts.tsv
     ├── emu-combined-phylum.tsv
-    └── emu-combined-phylum-counts.tsv
+    ├── emu-combined-phylum-counts.tsv
+    └── read_accounting.tsv              where every read went, per barcode
 ```
 
 **Relative abundance vs counts.** Abundance tables give each taxon's proportion
@@ -887,6 +888,31 @@ of the sample, summing to 1 per column. Counts tables give Emu's estimated
 number of reads. Use abundances to compare composition between samples; use
 counts for methods that expect count data, such as differential-abundance
 testing.
+
+**Reads that were not classified are in the tables too**, on a row labelled
+`Unclassified`. Emu writes that row without a name; nano16s labels it, so a
+column still sums to the reads the classifier was given and you can drop it
+deliberately rather than by accident.
+
+**`read_accounting.tsv`** is the same arithmetic laid out per barcode:
+
+| column | meaning |
+|---|---|
+| `raw_reads` | what came off the sequencer |
+| `removed_by_filter` | removed by the length and quality filter |
+| `filtered_reads` | what survived it |
+| `subsampled_out` | left out by `--max-reads`, 0 when it is off |
+| `reads_to_classifier` | what Emu was actually given |
+| `reads_classified` | placed on a species |
+| `reads_unclassified` | Emu could not place |
+| `species_found`, `genera_found` | how many distinct taxa that barcode produced |
+| `check` | `ok` when classified + unclassified equals what the classifier was given |
+
+So `raw_reads = removed_by_filter + filtered_reads`, and `filtered_reads =
+subsampled_out + reads_classified + reads_unclassified`. The report shows the
+same table under **Every read accounted for**. If a species-level total ever
+looks smaller than you expect, this is the first place to look: the reads are
+either filtered out, not classified, or on a taxon you filtered away.
 
 ### Opening your results
 

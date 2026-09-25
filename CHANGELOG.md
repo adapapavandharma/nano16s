@@ -10,6 +10,20 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Added
+- `07_emu_combined/read_accounting.tsv`, and the same table in the report as
+  "Every read accounted for": per barcode, the raw reads, what the filter
+  removed, what `--max-reads` left out, what the classifier was given, and how
+  that split into classified and unclassified, with the number of species and
+  genera found. Until now the tables said what was in a sample but nothing said
+  whether the numbers added up, so anyone reconciling a species total against
+  their read count had to work it out themselves. A `check` column states it
+  outright.
+- Emu's unnamed row is labelled `Unclassified` in every combined table. Emu
+  writes the reads it could not place into a row with no taxonomy at all, which
+  reads as a blank line: summing a column silently included it, and filtering
+  out unnamed rows silently dropped it. The counts are untouched.
+
 ### Fixed
 - The guide says which species names to distrust. On the ZymoBIOMICS mock
   community nano16s got every genus right but consistently named four species

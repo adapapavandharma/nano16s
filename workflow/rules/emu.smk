@@ -6,6 +6,8 @@
 # Requires from config: emu_db
 # =============================================================================
 
+import os
+
 def classifier_input(wildcards):
     """The reads Emu classifies: subsampled when max_reads is set, else filtered.
 
@@ -154,6 +156,7 @@ rule emu_combine:
         emu_dir     = f"{OUTPUT_DIR}/06_emu_output",
         combined_dir = f"{OUTPUT_DIR}/07_emu_combined",
         db          = config["emu_db"],
+        label_script = os.path.join(workflow.basedir, "scripts", "label_unclassified.py"),
     shell:
         """
         mkdir -p "{params.combined_dir}"
@@ -238,4 +241,36 @@ rule emu_combine:
             echo "     completed work is kept, so it finishes quickly." >&2
             exit 1
         fi
+
+        # Emu leaves one row with every taxonomy field empty: the reads it
+        # could not place. Unlabelled, it reads as a blank line, so summing a
+        # column silently includes it and filtering out unnamed rows silently
+        # drops it. Name it, and the table adds up in plain sight.
+        python3 "{params.label_script}" {wildcards.rank} "{output.rel}" "{output.cnts}"
+        """
+
+
+# ---------------------------------------------------------------------------
+# Where every read went, per barcode, and how many taxa it found.
+#
+# The combined tables say what is in each sample; this says whether it adds up.
+# One row per barcode: raw, removed by the filter, given to the classifier,
+# classified, unclassified, and the number of species and genera found. The
+# `check` column is the arithmetic a reader would otherwise have to do.
+# ---------------------------------------------------------------------------
+rule read_accounting:
+    input:
+        rel = expand(
+            f"{OUTPUT_DIR}/06_emu_output/{{sample}}/{{sample}}_rel-abundance.tsv",
+            sample=SAMPLES,
+        ),
+        summary = f"{OUTPUT_DIR}/preprocessing_summary.csv",
+    output:
+        f"{OUTPUT_DIR}/07_emu_combined/read_accounting.tsv"
+    params:
+        emu_dir = f"{OUTPUT_DIR}/06_emu_output",
+        script  = os.path.join(workflow.basedir, "scripts", "read_accounting.py"),
+    shell:
+        """
+        python3 "{params.script}" "{params.emu_dir}" "{input.summary}" "{output}"
         """
