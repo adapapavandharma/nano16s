@@ -68,7 +68,7 @@ USAGE
     nano16s batch -d <dir_of_runs> -o <dir> [OPTIONS]
     nano16s db build [--version YYYY.MM]
     nano16s db list
-    nano16s test
+    nano16s test [-o DIR]
     nano16s --version
 
 The pipeline: merge per-barcode FASTQs, QC the raw reads, trim adapters
@@ -116,6 +116,9 @@ EXAMPLES
 
     # check the install works, using the bundled demo data
     nano16s test
+
+    # the same, into a directory that persists: a second run resumes
+    nano16s test -o ~/nano16s_check
 
     # analyse your own run
     nano16s -d /path/to/fastq_pass -o my_results
@@ -219,22 +222,47 @@ cmd_db() {
 cmd_test() {
     local demo="$ROOT/test/demo/fastq_pass"
     [[ -d "$demo" ]] || die "bundled demo data not found at $demo"
-    # Under $HOME, not /tmp. The point of this command is that you read the
-    # report it produces, and on Ubuntu the default Firefox is a snap: a snap
-    # has its own private /tmp, so the browser reports "File not found" for a
-    # report the terminal is listing right there. /tmp is also cleared on
-    # reboot. Anything under $HOME is readable by a confined browser and
-    # survives. TMPDIR still wins where it is set deliberately, which is what
-    # CI does.
-    local out root
-    root="${TMPDIR:-$HOME}"
-    [[ -d "$root" && -w "$root" ]] || root=/tmp
-    out="$(mktemp -d "$root/nano16s_test_XXXXXX")"
+
+    # -o is read here rather than passed through. Forwarded, it reached the run
+    # -- where the later -o won -- while the check below still looked in the
+    # fresh temporary directory, so a run that had just finished perfectly was
+    # reported as twelve missing outputs and "the install is not working
+    # correctly". A false alarm from the one command whose job is to say
+    # whether the install works is worse than no command at all.
+    local out="" pass=()
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -o|--output-dir) need_value "$@"; out="$2"; shift 2 ;;
+            *)               pass+=("$1");    shift      ;;
+        esac
+    done
+
+    if [[ -n "$out" ]]; then
+        # A directory that persists lets a second run resume: Snakemake skips
+        # finished work, but only when the output directory is the same one.
+        mkdir -p "$out" || die "cannot create output directory: $out"
+        out="$(cd "$out" && pwd)"
+    else
+        # Under $HOME, not /tmp. The point of this command is that you read the
+        # report it produces, and on Ubuntu the default Firefox is a snap: a
+        # snap has its own private /tmp, so the browser reports "File not
+        # found" for a report the terminal is listing right there. /tmp is also
+        # cleared on reboot. Anything under $HOME is readable by a confined
+        # browser and survives. TMPDIR still wins where it is set deliberately,
+        # which is what CI does.
+        local root
+        root="${TMPDIR:-$HOME}"
+        [[ -d "$root" && -w "$root" ]] || root=/tmp
+        out="$(mktemp -d "$root/nano16s_test_XXXXXX")"
+    fi
+
     echo "Running the bundled demo dataset."
     echo "  input:  $demo"
     echo "  output: $out"
     echo ""
-    "$BIN_DIR/nano16s" -d "$demo" -o "$out" -y "$@"
+    # Guarded count: bash before 4.4 treats an empty array under set -u as
+    # unset and aborts, and macOS still ships 3.2.
+    "$BIN_DIR/nano16s" -d "$demo" -o "$out" -y ${pass[@]+"${pass[@]}"}
     echo ""
     exec python3 "$ROOT/test/check_demo.py" "$out"
 }

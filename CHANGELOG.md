@@ -52,6 +52,14 @@ report, so a result can always be traced to the database that produced it.
   out unnamed rows silently dropped it. The counts are untouched.
 
 ### Fixed
+- `nano16s test -o DIR` no longer reports a working install as broken. The
+  flag reached the run, which wrote the results where it was asked to, while
+  the verification kept looking in the temporary directory the command makes
+  for itself — so a run that produced every output was reported as twelve
+  missing ones and "the install is not working correctly". `-o` is now read by
+  the command itself, no temporary directory is created when one is given, and
+  `nano16s test` without `-o` is unchanged. Pointing it at a directory that
+  persists also lets a second run resume rather than classify the demo again.
 - CI retries the Miniforge download. It is fetched from GitHub's release
   servers, which returned a 504 once and failed the macOS install job on a
   commit whose other six checks passed. Five retries with a 20-second connect
