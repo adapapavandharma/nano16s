@@ -10,6 +10,8 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-10-02
+
 ### Added
 - The Zenodo DOI, in the README badge row, the Citing section, `CITATION.cff`
   and the guide. `10.5281/zenodo.22031297` resolves to the latest
