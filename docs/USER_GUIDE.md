@@ -454,6 +454,17 @@ nano16s test
 If it prints **Install verified**, everything works: the environment, every
 tool, the database, and the reports.
 
+Each run makes its own directory under your home and leaves it there, so you
+can read the report; the check tells you how to delete it. To keep one place
+instead, give it `-o`:
+
+```bash
+nano16s test -o ~/nano16s_check
+```
+
+A directory that persists also lets a second run resume, which turns the five
+minutes into seconds when you are re-checking after a change.
+
 Do this after installing, and again after any change to your conda environment.
 It is much easier to debug a broken install on demo data than three hours into a
 real run.
