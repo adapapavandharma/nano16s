@@ -50,6 +50,14 @@ report, so a result can always be traced to the database that produced it.
   else appears as `MISMATCH: +N reads` with the columns visibly failing to add
   up. One read either way is still `ok`, since Emu's counts are estimates and
   their total can land a read either side of the true input.
+- When a barcode loses every read, the report names the setting that removed
+  them. The filter applies a length window and a quality floor; the message
+  named only the window, so a run that lost everything to `--min-quality` sent
+  the reader to change the setting that was not the problem. The barcode's own
+  raw medians are already in the summary the report reads, so it now says
+  "its median raw quality is Q15.0, below the Q>=40 floor" or "its median raw
+  read is 1,612 bp, outside the 4000-5000 bp window", and names both only when
+  the medians do not single one out.
 
 ## [1.2.1] — 2026-10-02
 
