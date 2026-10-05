@@ -10,6 +10,8 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+## [1.2.2] — 2026-10-05
+
 ### Fixed
 - Two nano16s runs can run at the same time. Porechop_ABI writes its k-mer
   counts to `./tmp` relative to the current directory, so each job gets a
