@@ -249,11 +249,12 @@ jobs:
     name: pipeline (demo data, ubuntu-latest)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # Measured on the first run of this job: install 64s, database build 30s,
-    # demo 542s -- 10m49s in total. The pipeline itself is the cost; the
-    # database is not, which is why there is no cache here. Building it every
-    # time also means `nano16s db build` is covered on every pull request
-    # rather than assumed to work.
+    # Measured: install 69s, database build 21s, demo 342s -- 7m21s in total.
+    # The pipeline itself is the cost; the database is not, which is why there
+    # is no cache here. Building it every time also means `nano16s db build` is
+    # covered on every pull request rather than assumed to work. The cached
+    # version of this job was slower end to end (10m49s), the save and restore
+    # costing more than the build it avoided.
     timeout-minutes: 60
     defaults:
       run:

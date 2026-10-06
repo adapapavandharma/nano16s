@@ -17,8 +17,8 @@ report, so a result can always be traced to the database that produced it.
   pipeline change raises: does it still run. A rule whose body no longer works
   could merge green and be found days later by the scheduled job, or by a
   user. One platform and the bundled demo, including a database built from
-  NCBI, which takes eleven minutes in total — the pipeline itself is nearly
-  all of it. The weekly job is unchanged: two platforms, which is what catches
+  NCBI, which takes about seven minutes in total — the pipeline itself is
+  nearly all of it. The weekly job is unchanged: two platforms, which is what catches
   a dependency moving underneath us.
 
 ## [1.2.2] — 2026-10-05
