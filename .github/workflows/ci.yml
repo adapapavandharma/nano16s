@@ -241,16 +241,19 @@ jobs:
   # the reports are built from. `nano16s test -o` would also have failed
   # loudly on the output-directory bug fixed in #47.
   #
-  # The weekly job below stays as it is: two platforms, a database built fresh
-  # from NCBI, no cache. That is what catches a dependency moving underneath
-  # us. This one trades that breadth for being quick enough to run before a
-  # merge -- one platform, and the database restored from cache.
+  # The weekly job below stays as it is: two platforms and no path filter.
+  # That one is about the dependencies -- bioconda moves underneath us. This
+  # one trades that breadth for being quick enough to wait for: one platform,
+  # about eleven minutes, measured below.
   demo:
     name: pipeline (demo data, ubuntu-latest)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # The first run of a month builds the database, which is the slow part;
-    # every run after it restores 45 MB and goes straight to the pipeline.
+    # Measured on the first run of this job: install 64s, database build 30s,
+    # demo 542s -- 10m49s in total. The pipeline itself is the cost; the
+    # database is not, which is why there is no cache here. Building it every
+    # time also means `nano16s db build` is covered on every pull request
+    # rather than assumed to work.
     timeout-minutes: 60
     defaults:
       run:
@@ -275,33 +278,17 @@ jobs:
       - name: Install
         run: bash install.sh
 
-      # Keyed on the month, not on a commit: `nano16s db build` always fetches
-      # the current NCBI content and only labels the directory with the month,
-      # so a key tied to the code would serve content that drifted while
-      # claiming not to have. A month is short enough that the database here
-      # is never far behind, and the weekly job builds one from scratch anyway.
-      - name: Cache key for the database
-        id: dbkey
-        run: echo "month=$(date -u +%Y.%m)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore the reference database
-        id: dbcache
-        uses: actions/cache@v4
-        with:
-          path: ~/.nano16s/db
-          key: nano16s-db-${{ steps.dbkey.outputs.month }}
-
-      - name: Build the database if the cache was empty
-        if: steps.dbcache.outputs.cache-hit != 'true'
+      # Built rather than cached. The first version of this job cached it,
+      # on the assumption that a build from NCBI costs what it costs locally;
+      # on the runner it took 30 seconds of an eleven-minute job, so the cache
+      # was saving nothing worth the stale-content question it raised -- and a
+      # cached database would have hidden a broken `nano16s db build`, which
+      # nothing else on a pull request exercises.
+      - name: Build the reference database from NCBI
         run: |
           source "$(conda info --base)/etc/profile.d/conda.sh"
           conda activate nano16s
-          nano16s db build --version "${{ steps.dbkey.outputs.month }}"
-
-      - name: Which database this run used
-        run: |
-          source "$(conda info --base)/etc/profile.d/conda.sh"
-          conda activate nano16s
+          nano16s db build
           nano16s db list
 
       # `nano16s test` verifies its own output and exits non-zero with the
