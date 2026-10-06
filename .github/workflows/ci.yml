@@ -223,6 +223,114 @@ jobs:
   # external FTP server, so it is not on the push path — weekly and on
   # demand only.
   # ---------------------------------------------------------------------
+  # The pipeline itself, before a merge rather than once a week.
+  #
+  # The unit, lint and install jobs between them never execute a single rule:
+  # install builds the DAG and stops. So nothing on a pull request answers the
+  # one question a pipeline change raises -- does it still run -- and a rule
+  # whose body no longer works merges green and is found a week later by the
+  # scheduled job, or by a user.
+  #
+  # To be clear about what this does and does not cover: the bugs found in the
+  # October 2026 audit each need a condition a single clean run does not have
+  # -- two runs at once, a path containing a space, a column whose arithmetic
+  # is self-referential. Those are guarded by test_temp_dirs.py,
+  # test_path_spaces.py and test_read_accounting.py, which is the right place
+  # for them. What this job adds is the thing none of those can assert: that
+  # every rule still executes, in order, on real reads, and produces the files
+  # the reports are built from. `nano16s test -o` would also have failed
+  # loudly on the output-directory bug fixed in #47.
+  #
+  # The weekly job below stays as it is: two platforms, a database built fresh
+  # from NCBI, no cache. That is what catches a dependency moving underneath
+  # us. This one trades that breadth for being quick enough to run before a
+  # merge -- one platform, and the database restored from cache.
+  demo:
+    name: pipeline (demo data, ubuntu-latest)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # The first run of a month builds the database, which is the slow part;
+    # every run after it restores 45 MB and goes straight to the pipeline.
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Miniforge if the runner has no conda
+        run: |
+          if command -v conda >/dev/null; then
+            echo "conda already present: $(conda --version)"
+          else
+            curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+              --connect-timeout 20 -o /tmp/miniforge.sh \
+              "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+            bash /tmp/miniforge.sh -b -p "$HOME/miniforge3"
+            echo "$HOME/miniforge3/bin" >> "$GITHUB_PATH"
+          fi
+
+      # Let install.sh build the environment, as the install job does, so this
+      # exercises the path the README documents rather than a hand-made env.
+      - name: Install
+        run: bash install.sh
+
+      # Keyed on the month, not on a commit: `nano16s db build` always fetches
+      # the current NCBI content and only labels the directory with the month,
+      # so a key tied to the code would serve content that drifted while
+      # claiming not to have. A month is short enough that the database here
+      # is never far behind, and the weekly job builds one from scratch anyway.
+      - name: Cache key for the database
+        id: dbkey
+        run: echo "month=$(date -u +%Y.%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the reference database
+        id: dbcache
+        uses: actions/cache@v4
+        with:
+          path: ~/.nano16s/db
+          key: nano16s-db-${{ steps.dbkey.outputs.month }}
+
+      - name: Build the database if the cache was empty
+        if: steps.dbcache.outputs.cache-hit != 'true'
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate nano16s
+          nano16s db build --version "${{ steps.dbkey.outputs.month }}"
+
+      - name: Which database this run used
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate nano16s
+          nano16s db list
+
+      # `nano16s test` verifies its own output and exits non-zero with the
+      # list of what is missing, so there is nothing to assert afterwards. It
+      # is given an output directory rather than letting it pick one, which is
+      # what makes the upload below able to find the run without globbing for
+      # a temporary name.
+      - name: Run the bundled demo end to end
+        run: |
+          source "$(conda info --base)/etc/profile.d/conda.sh"
+          conda activate nano16s
+          nano16s test -o "$RUNNER_TEMP/demo"
+
+      # Only on failure: a green run has nothing in here worth keeping, and
+      # the reports are the first thing anyone would ask for on a red one.
+      - name: Keep the run for inspection if it failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-run
+          path: |
+            ${{ runner.temp }}/demo/*.html
+            ${{ runner.temp }}/demo/*.csv
+            ${{ runner.temp }}/demo/*.json
+            ${{ runner.temp }}/demo/07_emu_combined/
+          if-no-files-found: warn
+          retention-days: 7
+
+  # ---------------------------------------------------------------------
   # macOS is here because it is the only job that executes a rule on it. The
   # install job builds the DAG and stops, so nothing ran Emu, Porechop or
   # Chopper on a Mac -- and macOS ships bash 3.2 as /bin/bash, which is the

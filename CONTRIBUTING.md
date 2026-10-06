@@ -62,6 +62,17 @@ Run the unit tests while developing; run `nano16s test` before opening a pull
 request. Between them, the first catches parsing regressions in seconds and the
 second catches everything else.
 
+**What CI runs.** Both of the above, on every pull request: the unit tests on
+Linux and macOS across the supported Python range, and the demo run on Linux
+with the reference database restored from a cache keyed on the month. The
+scheduled weekly job runs the demo again on both platforms with a database
+built fresh from NCBI — that one is about the dependencies rather than the
+code, since bioconda moves underneath us and a tool release can break the
+environment without anything here changing.
+
+So a pull request that breaks a rule fails before it merges, and a dependency
+that breaks one fails within a week.
+
 ## Linting
 
 ```bash
