@@ -226,8 +226,26 @@ wsl --install
 > wsl --install -d Ubuntu --web-download
 > ```
 >
-> On Windows 10 older than version 2004, `wsl --install` is not recognised at
-> all; update Windows first.
+> **`Invalid command line option: --install`** means this build of Windows
+> predates that option entirely — the usage text it prints will list
+> `--import`, `--list` and `--unregister` but no `--install`. Check the build
+> first, in the same window:
+>
+> ```powershell
+> [System.Environment]::OSVersion.Version
+> ```
+>
+> Below build **19041**, WSL2 cannot run at all and Windows Update has to come
+> first. At 19041 or above, enable the two features by hand, **restart**, then
+> install the kernel update from <https://aka.ms/wsl2kernel> and get Ubuntu
+> from the Microsoft Store:
+>
+> ```powershell
+> dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+> dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+> # restart, install the kernel update, then:
+> wsl --set-default-version 2
+> ```
 
 **3. Restart your computer.** Required even if the install reported success —
 until you restart, WSL commands answer
@@ -259,11 +277,16 @@ cannot run at an Ubuntu prompt.
 **6. Install the two tools Ubuntu does not always ship with:**
 
 ```bash
-sudo apt update && sudo apt install -y curl git
+curl --version || sudo apt update && sudo apt install -y curl git
 ```
 
-It asks for the Linux password from step 4, and is harmless if they are already
-installed.
+**Check before you install.** Ubuntu ships `curl` already, so on most machines
+the first half answers with a version and nothing else runs. That matters more
+than it sounds: on a university or hotel network, `apt update` can stall or
+fail for reasons that have nothing to do with you — a blocked port 80, a
+proxy, a captive portal — and it would be a shame to lose twenty minutes
+installing something you already have. If `curl --version` prints a version,
+you are done with this step whatever apt says.
 
 If this reports `Could not resolve host`, Ubuntu has no working DNS — see
 section 20, *Ubuntu cannot download anything*. Everything from here on
@@ -305,6 +328,8 @@ Continue at *Install Miniforge* below.
 Open a terminal and make sure `curl` and `git` are present:
 
 ```bash
+curl --version          # already present on most systems — if this works, skip the rest
+
 # Debian / Ubuntu
 sudo apt update && sudo apt install -y curl git
 
@@ -403,9 +428,21 @@ echo 'conda activate nano16s' >> ~/.bashrc      # or ~/.zshrc
 
 ## 5. Build the reference database
 
-Organisms can only be identified against a reference. Build one now — it takes
-about ten minutes and downloads roughly 100 MB from NCBI. **You do this once**,
+Organisms can only be identified against a reference. Build one now. It
+downloads roughly 100 MB from NCBI and takes anywhere from twenty seconds on a
+fast wired connection to a few minutes on shared wifi. **You do this once**,
 not per run.
+
+> **It needs about 2.2 GB of memory**, nearly all of it in the final step,
+> where the taxonomy — over three million nodes — is loaded and minimap2 builds
+> its index. On WSL2 that is worth knowing, because WSL gets **half your
+> Windows RAM by default**: an 8 GB laptop with a browser open can come up
+> short, and the build is then killed by the kernel. It reports
+> `ERROR: emu build-database failed` with nothing from Emu itself above it,
+> which is what being killed looks like. Close other applications and try
+> again, give WSL more memory (`[wsl2]` / `memory=6GB` in
+> `C:\Users\<you>\.wslconfig`, then `wsl --shutdown`), or copy a database
+> someone else has already built — see below.
 
 ```bash
 nano16s db build
@@ -440,6 +477,27 @@ nano16s -d /path/to/your_run/fastq_pass --db ~/.nano16s/db/2026.07/ncbi_16s
 Set `NANO16S_DB` to move the whole database root somewhere else, such as a
 shared drive.
 
+### Copying a database instead of building one
+
+A built database is three files in a folder — about 45 MB — and copying it is
+a supported alternative to `nano16s db build`. It avoids the download and the
+2.2 GB the build needs, which matters on a small laptop, and it is the only
+way to be certain several people are using **exactly** the same reference:
+NCBI's collection changes daily, so two builds a week apart differ by a handful
+of sequences.
+
+```bash
+mkdir -p ~/.nano16s/db
+cp -r /path/to/2026.10 ~/.nano16s/db/
+nano16s db list
+```
+
+A USB stick that Windows calls `D:` is `/mnt/d/` inside Ubuntu, and on a Mac
+sticks appear under `/Volumes/`. `nano16s db list` should then report the
+version with its sequence count; if it reports nothing, look for a nested
+folder — you want `~/.nano16s/db/<version>/ncbi_16s/` to hold
+`species_taxid.fasta`, `taxonomy.tsv` and `MANIFEST.json`.
+
 ---
 
 ## 6. Verify the install
@@ -454,9 +512,11 @@ nano16s test
 If it prints **Install verified**, everything works: the environment, every
 tool, the database, and the reports.
 
-Each run makes its own directory under your home and leaves it there, so you
-can read the report; the check tells you how to delete it. To keep one place
-instead, give it `-o`:
+Each run makes its own directory and leaves it there, so you can read the
+report; the check tells you how to delete it. Where that directory goes
+depends on the platform — `TMPDIR` when it is set, your home directory when it
+is not, and **macOS always sets it**, so on a Mac it is under `/var/folders/`
+rather than `~`. Name it yourself and the question goes away:
 
 ```bash
 nano16s test -o ~/nano16s_check
@@ -1055,9 +1115,23 @@ Linux, if nothing happens, name the file manager directly — `nautilus .`,
 cannot see a file that `ls` shows you in the terminal, and reports *File not
 found* for a path that exists. `/tmp` is also cleared on reboot.
 
-`nano16s test` writes into your home directory for this reason, and `-o`
-should point somewhere under it too. If you already have a report stuck under
-`/tmp`, copy it out:
+`nano16s test` uses `TMPDIR` when it is set, and falls back to your home
+directory when it is not. **On a Mac that distinction matters: macOS sets
+`TMPDIR` for every user**, to a private path like
+`/var/folders/d6/…/T/`, so the run lands there and not under `~`. The
+directory is real and readable — macOS simply clears it periodically, so a
+report left there eventually disappears.
+
+The way to not think about any of this is to name the directory yourself:
+
+```bash
+nano16s test -o ~/nano16s_check
+open ~/nano16s_check/nano16s_report.html     # 'xdg-open' on Linux
+```
+
+If you have already run it without `-o`, the path is printed on the
+*Open the report* line of its own output — copy it from there. If you have a
+report stuck under `/tmp`, copy it out:
 
 ```bash
 cp /tmp/nano16s_test_*/nano16s_report.html ~/
@@ -1484,7 +1558,45 @@ Run `conda activate nano16s`. Needed in every new terminal.
 
 **`no Emu database found`**
 
-Run `nano16s db build` (about ten minutes, once).
+Run `nano16s db build`, once. If that fails, see the next entry.
+
+**`ERROR: emu build-database failed`**
+
+Almost always memory. The final step of the build loads a three-million-node
+taxonomy and builds a minimap2 index, peaking around **2.2 GB**, and WSL2 gets
+only half your Windows RAM by default. When the kernel kills it there is no
+message from Emu above the error — that silence is the symptom.
+
+Confirm it, inside Ubuntu:
+
+```bash
+free -h
+dmesg | grep -i -E "killed process|out of memory" | tail -5
+```
+
+Three fixes, cheapest first: close your browser and retry; copy a database
+someone else built (section 5, *Copying a database instead of building one*);
+or give WSL more memory by creating `C:\Users\<you>\.wslconfig` containing
+
+```
+[wsl2]
+memory=6GB
+```
+
+then running `wsl --shutdown` in PowerShell and reopening Ubuntu.
+
+**`Invalid command line option: --install`** (Windows)
+
+This build of Windows is too old for `wsl --install`. Section 3 has the manual
+route — check your build number first, since below 19041 WSL2 cannot run at
+all.
+
+**The report is not in my home directory** (macOS)
+
+It will not be. macOS sets `TMPDIR`, so `nano16s test` writes under
+`/var/folders/…` instead. The path is on the *Open the report* line of the
+command's own output. Use `nano16s test -o ~/nano16s_check` to choose the
+location yourself, which is also where the OS will not clear it later.
 
 ### Your data
 
