@@ -271,8 +271,11 @@ cmd_test() {
         # snap has its own private /tmp, so the browser reports "File not
         # found" for a report the terminal is listing right there. /tmp is also
         # cleared on reboot. Anything under $HOME is readable by a confined
-        # browser and survives. TMPDIR still wins where it is set deliberately,
-        # which is what CI does.
+        # browser and survives. TMPDIR still wins where it is set, which is
+        # what CI relies on -- but note that macOS sets TMPDIR for every user,
+        # to a private /var/folders path, so on a Mac the run never lands under
+        # $HOME and the directory is cleared periodically by the OS. That is
+        # why the guide tells people to pass -o rather than go looking for it.
         local root
         root="${TMPDIR:-$HOME}"
         [[ -d "$root" && -w "$root" ]] || root=/tmp

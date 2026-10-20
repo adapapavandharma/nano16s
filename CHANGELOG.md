@@ -10,6 +10,35 @@ report, so a result can always be traced to the database that produced it.
 
 ## [Unreleased]
 
+### Fixed
+- Four documentation faults, each one found by a student in a classroom rather
+  than by review.
+  - **The guide said `nano16s test` writes into your home directory.** It does
+    not on a Mac: macOS sets `TMPDIR` for every user, so the run lands under
+    `/var/folders/…` and the guide's own `~/nano16s_test_*` command matched
+    nothing. The guide now explains where it goes on each platform, tells
+    people to pass `-o` instead, and `cmd_test`'s comment no longer claims
+    `TMPDIR` is only set deliberately.
+  - **Setup opened with `sudo apt update`.** Ubuntu ships `curl` already, so
+    the usual first command is unnecessary — and on a network where port 80 is
+    blocked it fails, which reads as "the install is broken" when nothing is.
+    The guide now checks with `curl --version` first.
+  - **`wsl --install` does not exist on older Windows 10.** The guide covered
+    the install stalling at 0% but not `Invalid command line option:
+    --install`, which is a different thing and needs the manual `dism` route,
+    or Windows Update below build 19041.
+  - **`nano16s db build` needs about 2.2 GB of memory** and nothing said so.
+    WSL2 gets half the Windows RAM by default, so an 8 GB laptop with a browser
+    open can have the build killed; because the kernel kills it, Emu prints
+    nothing and only `ERROR: emu build-database failed` appears. Documented,
+    with the `dmesg` check and three fixes.
+
+### Added
+- The guide describes copying a prebuilt database rather than building one —
+  three files, about 45 MB. It avoids the download and the memory, and it is
+  the only way to be sure several people share exactly one reference, since
+  NCBI's collection changes daily.
+
 ### Added
 - CI runs the pipeline on every pull request, not only on the weekly schedule.
   The unit, lint and install jobs never execute a rule — install builds the
