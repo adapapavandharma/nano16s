@@ -84,7 +84,7 @@ def test_sequences_get_synthetic_ids_because_rrndb_headers_have_none(tmp_path):
     mapping = bdb.append_rrndb_fasta(tmp_path, out, {"GCF_1": 562, "GCF_2": 562})
 
     assert mapping == {"rrnDB_000001": 562, "rrnDB_000002": 562}
-    headers = [l for l in out.read_text().splitlines() if l.startswith(">")]
+    headers = [ln for ln in out.read_text().splitlines() if ln.startswith(">")]
     assert headers[0].split()[0] == ">rrnDB_000001"
     # the original header is kept, so provenance survives into the database
     assert "GCF_1" in headers[0]
