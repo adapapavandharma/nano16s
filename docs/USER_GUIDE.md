@@ -482,6 +482,17 @@ is extracted from complete genome assemblies and so carries many sequences per
 species rather than one. On the same mock community, all eight species are then
 named correctly, with abundances essentially unchanged.
 
+Measured on the 2026-10 build:
+
+| | species | sequences | sequences for *E. coli* |
+|---|---|---|---|
+| default | 21,002 | 27,724 | 3 |
+| `--with-rrndb` | **27,868** | **96,958** | **3,160** |
+
+Both the breadth and the depth go up, but the depth is the point: three
+quarters of the added sequences go to species the default database already
+covered.
+
 **What it costs.** Classification takes roughly **4–5× longer**, because a
 database full of near-identical references gives the aligner far more
 candidates to weigh per read. `--max-reads` brings that down to about 2.5×:

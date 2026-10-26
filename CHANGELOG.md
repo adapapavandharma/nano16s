@@ -22,7 +22,9 @@ report, so a result can always be traced to the database that produced it.
   names four of eight species as a close relative, in every sample, with the
   genus always correct — an error nothing in a user's own results would reveal.
   rrnDB's sequences come from complete genome assemblies, many per species, and
-  with them all eight are named correctly and abundances barely move.
+  with them all eight are named correctly and abundances barely move. The
+  2026-10 build goes from 21,002 species and 27,724 sequences to 27,868 and
+  96,958 -- and from 3 *E. coli* reference sequences to 3,160.
   Classification costs roughly 4-5x more, or about 2.5x with `--max-reads`, so
   this is a flag rather than the default. Identical sequences under one species
   are collapsed: rrnDB lists every 16S copy of every genome, so without that
